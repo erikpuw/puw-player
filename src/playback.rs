@@ -373,31 +373,16 @@ pub struct RodioOutput {
 
 impl RodioOutput {
     pub fn new() -> Result<Self, String> {
-        // Query device format without starting the WASAPI stream at app launch,
-        // preventing startup DAC wake/DC-offset pops.
-        let builder = rodio::OutputStreamBuilder::from_default_device().map_err(|e| {
-            format!(
-                "{} {e}",
-                tr(
-                    "Không mở được thiết bị âm thanh:",
-                    "Could not open the audio device:"
-                )
-            )
-        })?;
-        use rodio::cpal::traits::{DeviceTrait, HostTrait};
-        let device = rodio::cpal::default_host()
-            .default_output_device()
-            .and_then(|d| d.default_output_config().ok())
-            .map(|cfg| (cfg.sample_rate().0, cfg.channels()));
-        let _ = builder;
-        Ok(Self {
+        let mut out = Self {
             stream: None,
             sink: None,
-            device,
+            device: None,
             path: None,
             duration_ms: 0,
             volume: 1.0,
-        })
+        };
+        out.ensure_stream()?;
+        Ok(out)
     }
 
     fn ensure_stream(&mut self) -> Result<&rodio::OutputStream, String> {
@@ -418,19 +403,49 @@ impl RodioOutput {
             stream
                 .mixer()
                 .add(rodio::source::Zero::new(cfg.channel_count(), cfg.sample_rate()));
-            std::thread::sleep(Duration::from_millis(15));
             self.stream = Some(stream);
         }
         Ok(self.stream.as_ref().expect("stream initialized"))
+    }
+
+    fn connect_sink(
+        &mut self,
+        decoder: rodio::Decoder<std::io::BufReader<std::fs::File>>,
+        paused: bool,
+    ) -> Result<rodio::Sink, String> {
+        use rodio::Source;
+        let volume = self.volume;
+        let stream = self.ensure_stream()?;
+        let cfg = stream.config();
+        let channels = cfg.channel_count();
+        let sample_rate = cfg.sample_rate();
+        let (sink, mut queue_rx) = rodio::Sink::new();
+        sink.set_volume(volume);
+        let source = rodio::source::UniformSourceIterator::new(decoder, channels, sample_rate)
+            .fade_in(Duration::from_millis(35));
+        sink.append(source);
+        // Advance past SourcesQueueOutput's initial Empty(1ch, 48kHz) placeholder so the mixer
+        // sees the real channel count and sample rate from sample 0 without a 512-sample glitch.
+        for _ in 0..channels {
+            let _ = queue_rx.next();
+        }
+        if paused {
+            sink.pause();
+        }
+        stream.mixer().add(queue_rx);
+        Ok(sink)
     }
 
     fn silence_and_drop_sink(&mut self) {
         if let Some(sink) = self.sink.take() {
             if !sink.empty() && !sink.is_paused() {
                 let current = sink.volume();
-                sink.set_volume(current * 0.3);
-                std::thread::sleep(Duration::from_millis(8));
-                sink.set_volume(0.0);
+                // Step down across rodio's 5ms periodic_access intervals so the waveform never clips.
+                for factor in [0.6, 0.3, 0.1, 0.0] {
+                    sink.set_volume(current * factor);
+                    std::thread::sleep(Duration::from_millis(6));
+                }
+                sink.pause();
                 std::thread::sleep(Duration::from_millis(20));
             } else {
                 sink.set_volume(0.0);
@@ -471,12 +486,7 @@ impl AudioOutput for RodioOutput {
             .or_else(|| inspect_audio(path).ok().map(|t| t.duration_ms()))
             .unwrap_or(0);
         self.silence_and_drop_sink();
-        let volume = self.volume;
-        let stream = self.ensure_stream()?;
-        let sink = rodio::Sink::connect_new(stream.mixer());
-        sink.pause();
-        sink.set_volume(volume);
-        sink.append(decoder.fade_in(Duration::from_millis(25)));
+        let sink = self.connect_sink(decoder, false)?;
         self.sink = Some(sink);
         self.path = Some(path.to_path_buf());
         self.duration_ms = duration_ms;
@@ -484,13 +494,31 @@ impl AudioOutput for RodioOutput {
     }
     fn play(&mut self) {
         if let Some(sink) = &self.sink {
-            sink.set_volume(self.volume);
-            sink.play();
+            if sink.is_paused() {
+                let target = self.volume;
+                sink.set_volume(0.0);
+                sink.play();
+                for factor in [0.2, 0.6, 1.0] {
+                    sink.set_volume(target * factor);
+                    std::thread::sleep(Duration::from_millis(6));
+                }
+            } else {
+                sink.set_volume(self.volume);
+                sink.play();
+            }
         }
     }
     fn pause(&mut self) {
-        if let Some(sink) = &self.sink {
+        if let Some(sink) = &self.sink
+            && !sink.is_paused()
+        {
+            let current = sink.volume();
+            for factor in [0.5, 0.15, 0.0] {
+                sink.set_volume(current * factor);
+                std::thread::sleep(Duration::from_millis(6));
+            }
             sink.pause();
+            sink.set_volume(self.volume);
         }
     }
     fn stop(&mut self) {
@@ -507,14 +535,8 @@ impl AudioOutput for RodioOutput {
         if self.sink.as_ref().is_none_or(|s| s.empty())
             && let Some(path) = self.path.clone()
         {
-            use rodio::Source;
             let decoder = Self::open_decoder(&path)?;
-            let volume = self.volume;
-            let stream = self.ensure_stream()?;
-            let sink = rodio::Sink::connect_new(stream.mixer());
-            sink.pause();
-            sink.set_volume(volume);
-            sink.append(decoder.fade_in(Duration::from_millis(20)));
+            let sink = self.connect_sink(decoder, true)?;
             self.sink = Some(sink);
         }
         if let Some(sink) = &self.sink
@@ -524,18 +546,10 @@ impl AudioOutput for RodioOutput {
         }
         // Fallback: if the stream could not seek in-place, reopen and seek forward from start.
         if let Some(path) = self.path.clone() {
-            use rodio::Source;
             let paused = self.sink.as_ref().is_none_or(|s| s.is_paused());
             self.silence_and_drop_sink();
-            let volume = self.volume;
             let decoder = Self::open_decoder(&path)?;
-            let stream = self.ensure_stream()?;
-            let sink = rodio::Sink::connect_new(stream.mixer());
-            sink.set_volume(volume);
-            if paused {
-                sink.pause();
-            }
-            sink.append(decoder.fade_in(Duration::from_millis(20)));
+            let sink = self.connect_sink(decoder, paused)?;
             let res = sink
                 .try_seek(target)
                 .map_err(|e| format!("{} {e}", tr("Không tua được:", "Could not seek:")));
@@ -661,14 +675,18 @@ impl Player {
     pub fn snapshot(&self) -> PlaybackSnapshot {
         self.snapshot.lock().map(|s| s.clone()).unwrap_or_default()
     }
+
+    pub fn shutdown(&mut self) {
+        if let Some(worker) = self.worker.take() {
+            let _ = self.tx.send(Message::Shutdown);
+            let _ = worker.join();
+        }
+    }
 }
 
 impl Drop for Player {
     fn drop(&mut self) {
-        let _ = self.tx.send(Message::Shutdown);
-        if let Some(worker) = self.worker.take() {
-            let _ = worker.join();
-        }
+        self.shutdown();
     }
 }
 

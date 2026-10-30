@@ -191,7 +191,9 @@ fn main() -> Result<(), slint::PlatformError> {
 
     ui.show()?;
     apply_border_style(&ui, false);
-    ui.run()
+    let res = ui.run();
+    state.borrow_mut().player.shutdown();
+    res
 }
 
 fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
@@ -248,8 +250,16 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
         apply_border_style(ui, maximized);
     });
     on!(on_window_close, |ui, s| {
-        stop_playback(ui, s);
+        ui.set_playing(false);
+        s.player.shutdown();
         let _ = ui.window().hide();
+    });
+    let close_state = state.clone();
+    ui.window().on_close_requested(move || {
+        if let Ok(mut s) = close_state.try_borrow_mut() {
+            s.player.shutdown();
+        }
+        slint::CloseRequestResponse::HideWindow
     });
     on!(on_dismiss_status, |ui, s| {
         ui.set_has_status(false);
