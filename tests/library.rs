@@ -122,3 +122,33 @@ fn library_is_the_lyrics_store() {
     assert_eq!(lib.cached(id).unwrap().0, "lrclib-synced");
     assert_eq!(lib.cached(id).unwrap().1, "[00:01.00]Một câu");
 }
+
+#[test]
+fn removing_tracks_keeps_files_and_cleans_playlists() {
+    let dir = tempfile::tempdir().unwrap();
+    let kept = dir.path().join("còn.wav");
+    let removed = dir.path().join("xóa.wav");
+    std::fs::write(&kept, b"a").unwrap();
+    std::fs::write(&removed, b"b").unwrap();
+    let gone = dir.path().join("đã mất.flac");
+    let mut lib = Library::open(&dir.path().join("lib.db")).unwrap();
+    let kept_id = lib.upsert_track(&sample(&kept)).unwrap();
+    let removed_id = lib.upsert_track(&sample(&removed)).unwrap();
+    let gone_id = lib.upsert_track(&sample(&gone)).unwrap();
+    let playlist = lib.create_playlist("Hay nghe").unwrap();
+    for id in [kept_id, removed_id, gone_id] {
+        lib.add_to_playlist(playlist, id).unwrap();
+    }
+
+    lib.remove_track(removed_id).unwrap();
+    assert!(
+        removed.is_file(),
+        "removing from the library must not delete the file"
+    );
+    assert_eq!(lib.remove_missing().unwrap(), vec![gone_id]);
+
+    let ids: Vec<i64> = lib.tracks(None).unwrap().iter().map(|t| t.id).collect();
+    assert_eq!(ids, vec![kept_id]);
+    assert_eq!(lib.playlists().unwrap()[0].count, 1);
+    assert!(lib.remove_missing().unwrap().is_empty());
+}

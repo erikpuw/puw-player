@@ -254,6 +254,29 @@ impl Library {
         Ok(())
     }
 
+    /// Removes a track from the library only; the audio file stays. Playlist entries, cached
+    /// lyrics and offsets go with it (ON DELETE CASCADE).
+    pub fn remove_track(&mut self, id: i64) -> Result<(), String> {
+        self.conn
+            .execute("DELETE FROM tracks WHERE id = ?1", params![id])
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// Removes every track whose file no longer exists. Returns the removed ids.
+    pub fn remove_missing(&mut self) -> Result<Vec<i64>, String> {
+        let missing: Vec<i64> = self
+            .tracks(None)?
+            .into_iter()
+            .filter(Track::missing)
+            .map(|track| track.id)
+            .collect();
+        for id in &missing {
+            self.remove_track(*id)?;
+        }
+        Ok(missing)
+    }
+
     pub fn playlists(&self) -> Result<Vec<Playlist>, String> {
         let mut statement = self
             .conn

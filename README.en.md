@@ -10,7 +10,7 @@ Puw Player plays **music that is already on your computer**. No streaming, no ac
 
 | Area | What you get |
 |---|---|
-| Library | Add files or whole folders. Only paths are stored; your files are never copied, moved or deleted. |
+| Library | Add files or whole folders. Only paths are stored; your files are never copied, moved or deleted. Remove a song from the library (trash button on the row) or clean up every song whose file is gone (Settings → Clean up broken songs); music files stay on disk. |
 | Playback | Play/pause, stop, previous/next, ±10 s seek, draggable timeline, volume. |
 | Queue | Shuffle without repeats, Previous returns to the song you just heard. Repeat: off / all / one. |
 | Playlists | Create, rename, delete. Add songs from the Songs tab, remove songs from a playlist. Deleting a playlist never deletes music files. |

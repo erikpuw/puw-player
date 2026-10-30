@@ -356,7 +356,29 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
         }
     });
 
-    on!(on_dialog_cancel, |ui, _s| ui.set_dialog_mode(0));
+    on!(on_dialog_cancel, |ui, _s| {
+        ui.set_dialog_mode(0);
+        ui.set_pending_remove(-1);
+    });
+    on!(
+        on_remove_missing,
+        |ui, s| match s.library.remove_missing() {
+            Ok(removed) => {
+                forget_tracks(ui, s, &removed);
+                let text = if removed.is_empty() {
+                    tr("Không có bài lỗi nào.", "No broken songs found.").to_string()
+                } else {
+                    tr(
+                        "Đã dọn {n} bài lỗi khỏi thư viện.",
+                        "Removed {n} broken songs from the library.",
+                    )
+                    .replace("{n}", &removed.len().to_string())
+                };
+                set_status(ui, s, text);
+            }
+            Err(error) => set_status(ui, s, error),
+        }
+    );
     let weak = handle.clone();
     let state_rc = state.clone();
     ui.on_dialog_confirm(move |text| {
@@ -387,6 +409,25 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
                         Ok(()) => refresh_playlists(&ui, &mut s),
                         Err(error) => set_status(&ui, &mut s, error),
                     }
+                }
+            }
+            4 => {
+                let index = ui.get_pending_remove();
+                ui.set_pending_remove(-1);
+                let Some(track) = s.library_tracks.get(index.max(0) as usize).cloned() else {
+                    return;
+                };
+                match s.library.remove_track(track.id) {
+                    Ok(()) => {
+                        forget_tracks(&ui, &mut s, &[track.id]);
+                        let text = tr(
+                            "Đã xóa “{title}” khỏi thư viện.",
+                            "Removed “{title}” from the library.",
+                        )
+                        .replace("{title}", display_title(&track));
+                        set_status(&ui, &mut s, text);
+                    }
+                    Err(error) => set_status(&ui, &mut s, error),
                 }
             }
             3 => {
@@ -1039,6 +1080,22 @@ fn show_source_quality(ui: &AppWindow, track: &Track) {
     ui.set_now_source(source.into());
     ui.set_now_quality(label.into());
     ui.set_now_quality_tier(tier);
+}
+
+/// After tracks leave the library: drop them from the queue and redraw every list.
+/// A removed track that is playing keeps playing; Next/Previous skip it from now on.
+fn forget_tracks(ui: &AppWindow, s: &mut AppState, ids: &[i64]) {
+    if let Some(queue) = s.queue.as_mut() {
+        for id in ids {
+            queue.remove(*id);
+        }
+    }
+    refresh_library(ui, s);
+    refresh_playlists(ui, s);
+    refresh_playlist_tracks(ui, s);
+    if s.queue.is_some() {
+        set_neighbor_covers(ui, s);
+    }
 }
 
 fn stop_playback(ui: &AppWindow, s: &mut AppState) {

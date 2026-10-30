@@ -74,6 +74,18 @@ impl Queue {
                 .unwrap_or(0);
         }
     }
+    /// Drops a track removed from the library; the cursor stays on the same song when it can.
+    pub fn remove(&mut self, id: i64) {
+        self.original.retain(|x| *x != id);
+        let Some(index) = self.order.iter().position(|x| *x == id) else {
+            return;
+        };
+        self.order.remove(index);
+        if index < self.cursor {
+            self.cursor -= 1;
+        }
+        self.cursor = self.cursor.min(self.order.len().saturating_sub(1));
+    }
     pub fn advance(&mut self, manual: bool) -> Option<i64> {
         if self.order.is_empty() {
             return None;

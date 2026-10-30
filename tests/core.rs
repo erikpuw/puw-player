@@ -88,3 +88,16 @@ fn interface_language_switches_text() {
     assert_eq!(i18n::tr("Nhạc", "Music"), "Music");
     i18n::set_english(false);
 }
+
+#[test]
+fn removing_from_queue_keeps_the_current_song_in_place() {
+    let mut q = Queue::new(vec![1, 2, 3, 4], 2);
+    q.remove(1);
+    assert_eq!(q.current(), Some(3));
+    assert_eq!(q.neighbor(-1), Some(2));
+    q.remove(4);
+    assert_eq!(q.advance(true), None);
+    q.remove(3);
+    assert_eq!(q.ids(), &[2]);
+    assert_eq!(q.current(), Some(2));
+}

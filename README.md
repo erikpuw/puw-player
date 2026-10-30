@@ -10,7 +10,7 @@ Puw Player phát **nhạc có sẵn trên máy bạn**. Không stream, không t�
 
 | Nhóm | Có gì |
 |---|---|
-| Thư viện | Thêm tệp hoặc cả thư mục. Chỉ lưu đường dẫn, không sao chép, di chuyển hay xóa file gốc. |
+| Thư viện | Thêm tệp hoặc cả thư mục. Chỉ lưu đường dẫn, không sao chép, di chuyển hay xóa file gốc. Xóa bài khỏi thư viện (nút thùng rác trên dòng) hoặc dọn mọi bài không còn file (Cài đặt → Dọn bài lỗi); file nhạc không bị xóa. |
 | Phát nhạc | Phát/tạm dừng, dừng, bài trước/sau, tua ±10 giây, kéo thanh thời gian, âm lượng. |
 | Hàng đợi | Shuffle không lặp bài, Previous quay đúng bài vừa nghe. Lặp: tắt / tất cả / một bài. |
 | Playlist | Tạo, đổi tên, xóa. Thêm bài từ tab Bài hát, bỏ bài khỏi playlist. Xóa playlist không xóa file nhạc. |
