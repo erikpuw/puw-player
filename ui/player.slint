@@ -107,13 +107,14 @@ component IconButton inherits Rectangle {
     in property <string> icon;
     in property <string> label;
     in property <string> badge: "";
-    // Lets a badge grow in/out instead of popping (repeat-one "1").
+    // Lets a badge fade in/out instead of scaling text (repeat-one "1").
     in property <bool> badge-shown: true;
     in property <length> size: 34px;
     in property <length> icon-size: 18px;
     in property <bool> filled-icon: false;
     in property <bool> active: false;
     in property <bool> plate: false;
+    in property <bool> enabled: true;
     in property <color> tint: Theme.muted;
     in property <length> weight: 1.8px;
     callback clicked();
@@ -123,14 +124,30 @@ component IconButton inherits Rectangle {
     preferred-height: size;
     horizontal-stretch: 0;
     vertical-stretch: 0;
+    opacity: root.enabled ? 1 : 0.45;
     accessible-role: button;
     accessible-label: label;
+    property <length> press-inset: touch.pressed && root.enabled ? 2px : 0px;
+    focus-scope := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if (root.enabled && (event.text == Key.Return || event.text == Key.Space)) {
+                root.clicked();
+                return EventResult.accept;
+            }
+            return EventResult.reject;
+        }
+    }
     Rectangle {
-        y: (parent.height - root.size) / 2;
-        width: root.size;
-        height: root.size;
-        border-radius: root.size / 2;
-        background: touch.has-hover ? (root.active ? Theme.accent-soft : Theme.hover) : (root.plate ? Theme.surface : transparent);
+        x: root.press-inset / 2;
+        y: (parent.height - root.size + root.press-inset) / 2;
+        width: root.size - root.press-inset;
+        height: root.size - root.press-inset;
+        border-radius: (root.size - root.press-inset) / 2;
+        border-width: focus-scope.has-focus ? 2px : 0px;
+        border-color: Theme.accent;
+        background: (touch.has-hover && root.enabled) ? (root.active ? Theme.accent-soft : Theme.hover) : (root.plate ? Theme.surface : transparent);
+        animate background { duration: Motion.fast; }
         Glyph {
             x: (parent.width - root.icon-size) / 2;
             y: (parent.height - root.icon-size) / 2;
@@ -147,16 +164,17 @@ component IconButton inherits Rectangle {
             height: parent.height;
             text: root.badge;
             opacity: root.badge-shown ? 1 : 0;
-            font-size: root.badge-shown ? 9px : 3px;
-            animate opacity, font-size { duration: Motion.slow; easing: ease-out; }
+            font-size: 9px;
+            animate opacity { duration: Motion.fast; easing: ease-out; }
             font-weight: 700;
             color: root.active ? Theme.accent : root.tint;
             horizontal-alignment: center;
             vertical-alignment: center;
         }
         touch := TouchArea {
-            mouse-cursor: pointer;
-            clicked => { root.clicked(); }
+            enabled: root.enabled;
+            mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+            clicked => { if (root.enabled) { root.clicked(); } }
         }
     }
 }
@@ -279,7 +297,7 @@ component HDivider inherits Rectangle {
     background: @linear-gradient(90deg, transparent 0%, Theme.line 12%, Theme.line 88%, transparent 100%);
 }
 
-// Thin vertical divider that stays centered inside a row layout.
+//Thin vertical divider that stays centered inside a row layout.
 component VDivider inherits Rectangle {
     in property <length> line-height: 18px;
     min-width: 1px;
@@ -292,14 +310,29 @@ component VDivider inherits Rectangle {
     }
 }
 
+// Soft fade at the top or bottom edge of a scrollable list when content extends past that edge.
+component ScrollEdgeFade inherits Rectangle {
+    in property <bool> top: true;
+    in property <bool> shown: false;
+    height: 22px;
+    opacity: root.shown ? 1 : 0;
+    animate opacity { duration: Motion.fast; easing: ease-out; }
+    background: root.top
+        ? @linear-gradient(180deg, Theme.bg 0%, Theme.bg.transparentize(1.0) 100%)
+        : @linear-gradient(180deg, Theme.bg.transparentize(1.0) 0%, Theme.bg 100%);
+}
+
 component Timeline inherits Rectangle {
     in property <float> position;
     in property <float> duration;
+    in property <bool> enabled: true;
     callback seek-to(float);
     min-height: 28px;
+    opacity: root.enabled ? 1 : 0.45;
     accessible-role: slider;
     accessible-label: I18n.t("Tiến trình bài hát", "Track progress");
     property <float> ratio: duration > 0 ? min(1, max(0, position / duration)) : 0;
+    property <length> thumb-size: (touch.has-hover || touch.pressed) && root.enabled ? 16px : 14px;
     Rectangle {
         y: (parent.height - 4px) / 2;
         height: 4px;
@@ -316,17 +349,18 @@ component Timeline inherits Rectangle {
         background: Theme.accent;
     }
     Rectangle {
-        x: min(parent.width - 14px, max(0px, parent.width * root.ratio - 7px));
-        y: (parent.height - 14px) / 2;
-        width: 14px;
-        height: 14px;
-        border-radius: 7px;
-        background: Theme.accent.brighter(0.15);
+        x: min(parent.width - root.thumb-size, max(0px, parent.width * root.ratio - root.thumb-size / 2));
+        y: (parent.height - root.thumb-size) / 2;
+        width: root.thumb-size;
+        height: root.thumb-size;
+        border-radius: root.thumb-size / 2;
+        background: Theme.accent.brighter(touch.pressed ? 0.25 : 0.15);
     }
     touch := TouchArea {
-        mouse-cursor: pointer;
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
         pointer-event(event) => {
-            if (event.button == PointerEventButton.left) {
+            if (root.enabled && event.button == PointerEventButton.left) {
                 if (event.kind == PointerEventKind.down || event.kind == PointerEventKind.move) {
                     root.seek-to(min(1, max(0, (touch.mouse-x / 1px) / (root.width / 1px))) * root.duration);
                 }
@@ -343,6 +377,7 @@ component VolumeSlider inherits Rectangle {
     min-height: 26px;
     accessible-role: slider;
     accessible-label: I18n.t("Âm lượng", "Volume");
+    property <length> thumb-size: volume-touch.has-hover || volume-touch.pressed ? 16px : 14px;
     Rectangle {
         y: (parent.height - 4px) / 2;
         height: 4px;
@@ -359,12 +394,12 @@ component VolumeSlider inherits Rectangle {
         background: Theme.accent;
     }
     Rectangle {
-        x: min(parent.width - 14px, max(0px, parent.width * root.volume - 7px));
-        y: (parent.height - 14px) / 2;
-        width: 14px;
-        height: 14px;
-        border-radius: 7px;
-        background: Theme.accent.brighter(0.15);
+        x: min(parent.width - root.thumb-size, max(0px, parent.width * root.volume - root.thumb-size / 2));
+        y: (parent.height - root.thumb-size) / 2;
+        width: root.thumb-size;
+        height: root.thumb-size;
+        border-radius: root.thumb-size / 2;
+        background: Theme.accent.brighter(volume-touch.pressed ? 0.25 : 0.15);
     }
     volume-touch := TouchArea {
         mouse-cursor: pointer;
@@ -388,6 +423,15 @@ component TabHeader inherits Rectangle {
     horizontal-stretch: 0;
     accessible-role: button;
     accessible-label: text;
+    tab-focus := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Return || event.text == Key.Space) {
+                root.clicked();
+                return EventResult.accept;
+            }
+            return EventResult.reject;
+        }
+    }
     label := Text {
         x: 0;
         y: 0;
@@ -395,7 +439,9 @@ component TabHeader inherits Rectangle {
         height: parent.height;
         text: root.text;
         font-size: 16px;
-        color: root.selected ? Theme.accent : (hover.has-hover ? Theme.text : Theme.muted);
+        font-weight: root.selected ? 600 : 400;
+        color: root.selected ? Theme.accent : (hover.has-hover || tab-focus.has-focus ? Theme.text : Theme.muted);
+        animate color { duration: Motion.fast; }
         vertical-alignment: center;
         horizontal-alignment: left;
     }
@@ -406,7 +452,7 @@ component TabHeader inherits Rectangle {
         width: parent.width;
         border-radius: 1px;
         background: Theme.accent;
-        opacity: root.selected ? 1 : 0;
+        opacity: root.selected ? 1 : (tab-focus.has-focus ? 0.5 : 0);
         animate opacity { duration: Motion.fast; }
     }
     hover := TouchArea {
@@ -629,6 +675,8 @@ export component AppWindow inherits Window {
     in-out property <string> lyrics-status;
     in-out property <bool> following: true;
     in-out property <int> active-lyric: -1;
+    // Bottom edge of the sung line inside the lyric content; Rust keeps it in sync with the model.
+    in property <length> lyric-anchor: 0px;
     in-out property <string> lyric-offset: "+0.0s";
     in-out property <bool> settings-visible;
     in-out property <bool> lyrics-online;
@@ -755,9 +803,32 @@ export component AppWindow inherits Window {
     default-font-family: "Segoe UI";
     default-font-size: 14px;
 
+    // content-y is negative once scrolled, so a positive target here never moved the pane.
     changed active-lyric => {
         if (root.following && root.active-lyric >= 0) {
-            lyric-scroll.content-y = max(0px, root.active-lyric * 34px - 150px);
+            let limit = max(0px, lyric-scroll.content-height - lyric-scroll.height);
+            lyric-scroll.content-y = -min(limit, max(0px, root.lyric-anchor - lyric-scroll.height * 0.62));
+        }
+    }
+    // Shuffle lands the playing row anywhere in the library, so pull it back into view.
+    changed current-track => {
+        if (root.current-track >= 0 && songs-list.content-height > 0px) {
+            let pitch = songs-list.content-height / max(1, root.tracks.length);
+            let top = root.current-track * pitch;
+            if (top < -songs-list.content-y) { songs-list.content-y = -top; }
+            if (top + pitch > -songs-list.content-y + songs-list.height) {
+                songs-list.content-y = min(0px, -(top + pitch - songs-list.height));
+            }
+        }
+    }
+    changed current-playlist-track => {
+        if (root.current-playlist-track >= 0 && playlist-songs-list.content-height > 0px) {
+            let pitch = playlist-songs-list.content-height / max(1, root.playlist-tracks.length);
+            let top = root.current-playlist-track * pitch;
+            if (top < -playlist-songs-list.content-y) { playlist-songs-list.content-y = -top; }
+            if (top + pitch > -playlist-songs-list.content-y + playlist-songs-list.height) {
+                playlist-songs-list.content-y = min(0px, -(top + pitch - playlist-songs-list.height));
+            }
         }
     }
     // Return keyboard shortcuts to the window once a dialog or picker closes.
@@ -769,7 +840,8 @@ export component AppWindow inherits Window {
     }
     changed following => {
         if (root.following && root.active-lyric >= 0) {
-            lyric-scroll.content-y = max(0px, root.active-lyric * 34px - 150px);
+            let limit = max(0px, lyric-scroll.content-height - lyric-scroll.height);
+            lyric-scroll.content-y = -min(limit, max(0px, root.lyric-anchor - lyric-scroll.height * 0.62));
         }
     }
 
@@ -855,8 +927,12 @@ export component AppWindow inherits Window {
                         IconButton {
                             icon: Icons.list;
                             label: "Playlist";
-                            active: root.tab == 1;
-                            clicked => { root.tab = 1; }
+                            active: root.tab == 1 && !root.lyrics-visible && !root.settings-visible;
+                            clicked => {
+                                root.lyrics-visible = false;
+                                root.settings-visible = false;
+                                root.tab = 1;
+                            }
                         }
                         IconButton {
                             icon: Icons.lyrics;
@@ -1099,6 +1175,7 @@ export component AppWindow inherits Window {
                             horizontal-stretch: 1;
                             position: root.position;
                             duration: root.duration;
+                            enabled: root.has-track;
                             seek-to(seconds) => { root.seek-to(seconds); }
                         }
                         Text {
@@ -1136,6 +1213,7 @@ export component AppWindow inherits Window {
                             icon-size: 32px;
                             weight: 2px;
                             plate: true;
+                            enabled: root.has-track;
                             tint: Theme.text;
                             clicked => { root.seek-backward(); }
                         }
@@ -1146,6 +1224,7 @@ export component AppWindow inherits Window {
                             icon-size: 24px;
                             filled-icon: true;
                             plate: true;
+                            enabled: root.has-track;
                             tint: Theme.text;
                             clicked => { root.previous(); }
                         }
@@ -1154,21 +1233,45 @@ export component AppWindow inherits Window {
                             max-width: 70px;
                             min-height: 70px;
                             max-height: 70px;
-                            border-radius: 35px;
-                            background: Theme.accent;
                             opacity: root.has-track ? 1 : 0.45;
                             accessible-role: button;
                             accessible-label: root.playing ? I18n.t("Tạm dừng", "Pause") : I18n.t("Phát", "Play");
-                            PlayPauseMorph {
-                                x: 20px;
-                                y: 20px;
-                                width: 30px;
-                                height: 30px;
-                                fill: Theme.on-accent;
-                                m: root.playing ? 1 : 0;
-                                animate m { duration: Motion.slow; easing: ease-in-out; }
+                            property <length> play-inset: play-touch.pressed && root.has-track ? 3px : 0px;
+                            play-focus := FocusScope {
+                                enabled: root.has-track;
+                                key-pressed(event) => {
+                                    if (root.has-track && (event.text == Key.Return || event.text == Key.Space)) {
+                                        root.play-pause();
+                                        return EventResult.accept;
+                                    }
+                                    return EventResult.reject;
+                                }
                             }
-                            TouchArea { mouse-cursor: pointer; clicked => { root.play-pause(); } }
+                            Rectangle {
+                                x: parent.play-inset / 2;
+                                y: parent.play-inset / 2;
+                                width: parent.width - parent.play-inset;
+                                height: parent.height - parent.play-inset;
+                                border-radius: (parent.width - parent.play-inset) / 2;
+                                border-width: play-focus.has-focus ? 2px : 0px;
+                                border-color: Theme.text;
+                                background: play-touch.has-hover && root.has-track ? Theme.accent.brighter(0.1) : Theme.accent;
+                                animate background { duration: Motion.fast; }
+                                PlayPauseMorph {
+                                    x: (parent.width - 30px) / 2;
+                                    y: (parent.height - 30px) / 2;
+                                    width: 30px;
+                                    height: 30px;
+                                    fill: Theme.on-accent;
+                                    m: root.playing ? 1 : 0;
+                                    animate m { duration: Motion.slow; easing: ease-in-out; }
+                                }
+                            }
+                            play-touch := TouchArea {
+                                enabled: root.has-track;
+                                mouse-cursor: root.has-track ? MouseCursor.pointer : MouseCursor.default;
+                                clicked => { if (root.has-track) { root.play-pause(); } }
+                            }
                         }
                         IconButton {
                             icon: Icons.next;
@@ -1177,6 +1280,7 @@ export component AppWindow inherits Window {
                             icon-size: 24px;
                             filled-icon: true;
                             plate: true;
+                            enabled: root.has-track;
                             tint: Theme.text;
                             clicked => { root.next(); }
                         }
@@ -1188,6 +1292,7 @@ export component AppWindow inherits Window {
                             icon-size: 32px;
                             weight: 2px;
                             plate: true;
+                            enabled: root.has-track;
                             tint: Theme.text;
                             clicked => { root.seek-forward(); }
                         }
@@ -1222,6 +1327,7 @@ export component AppWindow inherits Window {
                             icon-size: 18px;
                             filled-icon: true;
                             plate: true;
+                            enabled: root.has-track;
                             tint: Theme.text;
                             clicked => { root.stop(); }
                         }
@@ -1316,7 +1422,7 @@ export component AppWindow inherits Window {
                         height: parent.height - 46px;
                         background: transparent;
                         visible: root.tab == 0 && !root.lyrics-visible && !root.settings-visible;
-                        ListView {
+                        songs-list := ListView {
                             x: 0;
                             y: 0;
                             width: parent.width;
@@ -1344,6 +1450,20 @@ export component AppWindow inherits Window {
                                 }
                             }
                         }
+                        ScrollEdgeFade {
+                            x: 0;
+                            y: 0;
+                            width: parent.width;
+                            top: true;
+                            shown: -songs-list.viewport-y > 2px;
+                        }
+                        ScrollEdgeFade {
+                            x: 0;
+                            y: parent.height - self.height;
+                            width: parent.width;
+                            top: false;
+                            shown: songs-list.viewport-height + songs-list.viewport-y > songs-list.height + 2px;
+                        }
                         Text {
                             x: 4px;
                             y: 14px;
@@ -1367,10 +1487,10 @@ export component AppWindow inherits Window {
                         Rectangle {
                             x: 0;
                             y: 0;
-                            width: parent.width * 0.32;
+                            width: parent.width * 0.36;
                             height: parent.height;
                             background: transparent;
-                            ListView {
+                            playlists-list := ListView {
                                 x: 0;
                                 y: 0;
                                 width: parent.width;
@@ -1383,18 +1503,32 @@ export component AppWindow inherits Window {
                                     activate => { root.select-playlist(pi); }
                                 }
                             }
+                            ScrollEdgeFade {
+                                x: 0;
+                                y: 0;
+                                width: parent.width;
+                                top: true;
+                                shown: -playlists-list.viewport-y > 2px;
+                            }
+                            ScrollEdgeFade {
+                                x: 0;
+                                y: parent.height - self.height;
+                                width: parent.width;
+                                top: false;
+                                shown: playlists-list.viewport-height + playlists-list.viewport-y > playlists-list.height + 2px;
+                            }
                         }
                         Rectangle {
-                            x: parent.width * 0.32 + 4px;
+                            x: parent.width * 0.36 + 4px;
                             y: 6px;
                             width: 1px;
                             height: parent.height - 12px;
                             background: @linear-gradient(180deg, transparent 0%, Theme.line 6%, Theme.line 94%, transparent 100%);
                         }
                         Rectangle {
-                            x: parent.width * 0.32 + 12px;
+                            x: parent.width * 0.36 + 12px;
                             y: 0;
-                            width: parent.width * 0.68 - 12px;
+                            width: parent.width * 0.64 - 12px;
                             height: parent.height;
                             background: transparent;
                             visible: root.current-playlist >= 0;
@@ -1468,7 +1602,7 @@ export component AppWindow inherits Window {
                                 width: parent.width;
                                 height: parent.height - 59px;
                                 background: transparent;
-                                ListView {
+                                playlist-songs-list := ListView {
                                     x: 0;
                                     y: 0;
                                     width: parent.width;
@@ -1487,6 +1621,20 @@ export component AppWindow inherits Window {
                                         activate => { root.activate-track(ti); }
                                     }
                                 }
+                                ScrollEdgeFade {
+                                    x: 0;
+                                    y: 0;
+                                    width: parent.width;
+                                    top: true;
+                                    shown: -playlist-songs-list.viewport-y > 2px;
+                                }
+                                ScrollEdgeFade {
+                                    x: 0;
+                                    y: parent.height - self.height;
+                                    width: parent.width;
+                                    top: false;
+                                    shown: playlist-songs-list.viewport-height + playlist-songs-list.viewport-y > playlist-songs-list.height + 2px;
+                                }
                                 Text {
                                     x: 4px;
                                     y: 10px;
@@ -1500,9 +1648,9 @@ export component AppWindow inherits Window {
                         }
                         Text {
                             visible: root.current-playlist < 0;
-                            x: parent.width * 0.32 + 12px;
+                            x: parent.width * 0.36 + 12px;
                             y: 20px;
-                            width: parent.width * 0.68 - 12px;
+                            width: parent.width * 0.64 - 12px;
                             text: I18n.t("Chọn một playlist bên trái.", "Pick a playlist on the left.");
                             color: Theme.muted;
                             font-size: 13px;
@@ -1539,7 +1687,7 @@ export component AppWindow inherits Window {
                                 Text {
                                     text: root.lyric-offset;
                                     color: Theme.muted;
-                                    font-size: 11px;
+                                    font-size: 12px;
                                     vertical-alignment: center;
                                 }
                                 IconButton {
@@ -1557,14 +1705,14 @@ export component AppWindow inherits Window {
                                     clicked => { root.lyric-offset-step(1); }
                                 }
                                 Rectangle {
-                                    min-width: 86px;
-                                    max-width: 86px;
+                                    min-width: 96px;
+                                    max-width: 96px;
                                     accessible-role: button;
                                     accessible-label: I18n.t("Theo bài hát", "Follow song");
                                     Rectangle {
-                                        y: (parent.height - 24px) / 2;
-                                        height: 24px;
-                                        border-radius: 12px;
+                                        y: (parent.height - 26px) / 2;
+                                        height: 26px;
+                                        border-radius: 13px;
                                         background: follow-touch.has-hover ? Theme.hover : (root.following ? Theme.accent-soft : transparent);
                                         border-width: 1px;
                                         border-color: root.following ? Theme.accent : Theme.line;
@@ -1573,7 +1721,7 @@ export component AppWindow inherits Window {
                                             height: parent.height;
                                             text: I18n.t("Theo bài hát", "Follow song");
                                             color: root.following ? Theme.accent : Theme.muted;
-                                            font-size: 10px;
+                                            font-size: 12px;
                                             horizontal-alignment: center;
                                             vertical-alignment: center;
                                         }
@@ -1625,6 +1773,20 @@ export component AppWindow inherits Window {
                                         }
                                     }
                                 }
+                            }
+                            ScrollEdgeFade {
+                                x: 0;
+                                y: 0;
+                                width: parent.width;
+                                top: true;
+                                shown: -lyric-scroll.viewport-y > 2px;
+                            }
+                            ScrollEdgeFade {
+                                x: 0;
+                                y: parent.height - self.height;
+                                width: parent.width;
+                                top: false;
+                                shown: lyric-scroll.viewport-height + lyric-scroll.viewport-y > lyric-scroll.height + 2px;
                             }
                             Text {
                                 x: 6px;
@@ -1762,7 +1924,7 @@ export component AppWindow inherits Window {
                                         alignment: center;
                                         spacing: 0;
                                         Text { text: I18n.t("Tải lời từ LRCLIB", "Fetch lyrics from LRCLIB"); color: Theme.text; font-size: 14px; }
-                                        Text { text: I18n.t("Chỉ tên bài, nghệ sĩ, album và thời lượng được gửi.", "Only title, artist, album and duration are sent."); color: Theme.muted; font-size: 10px; overflow: elide; }
+                                        Text { text: I18n.t("Chỉ tên bài, nghệ sĩ, album và thời lượng được gửi.", "Only title, artist, album and duration are sent."); color: Theme.muted; font-size: 12px; overflow: elide; }
                                     }
                                     Rectangle { horizontal-stretch: 1; }
                                     Rectangle {
@@ -1775,6 +1937,7 @@ export component AppWindow inherits Window {
                                             height: 24px;
                                             border-radius: 12px;
                                             background: root.lyrics-online ? Theme.accent : Theme.line;
+                                            animate background { duration: Motion.fast; }
                                             Rectangle {
                                                 x: root.lyrics-online ? 22px : 2px;
                                                 y: 2px;
@@ -1782,7 +1945,7 @@ export component AppWindow inherits Window {
                                                 height: 20px;
                                                 border-radius: 10px;
                                                 background: root.lyrics-online ? Theme.on-accent : Theme.muted;
-                                                animate x { duration: Motion.fast; }
+                                                animate x { duration: Motion.fast; easing: ease-out; }
                                             }
                                             TouchArea {
                                                 mouse-cursor: pointer;
@@ -1803,7 +1966,7 @@ export component AppWindow inherits Window {
                                         alignment: center;
                                         spacing: 0;
                                         Text { text: I18n.t("Dọn bài lỗi", "Clean up broken songs"); color: Theme.text; font-size: 14px; }
-                                        Text { text: I18n.t("Xóa khỏi thư viện các bài không còn file trên máy.", "Removes songs whose file is no longer on disk."); color: Theme.muted; font-size: 10px; overflow: elide; }
+                                        Text { text: I18n.t("Xóa khỏi thư viện các bài không còn file trên máy.", "Removes songs whose file is no longer on disk."); color: Theme.muted; font-size: 12px; overflow: elide; }
                                     }
                                     Rectangle { horizontal-stretch: 1; }
                                     Rectangle {
@@ -1838,7 +2001,7 @@ export component AppWindow inherits Window {
                             Text {
                                 text: I18n.t("Lời đã tải được lưu trong thư viện và dùng được khi offline.", "Downloaded lyrics are saved in the library and work offline.");
                                 color: Theme.muted;
-                                font-size: 11px;
+                                font-size: 12px;
                                 wrap: word-wrap;
                             }
                         }
@@ -2110,7 +2273,8 @@ export component AppWindow inherits Window {
                             min-width: 96px;
                             min-height: 34px;
                             border-radius: 8px;
-                            background: Theme.accent;
+                            background: confirm-touch.pressed ? Theme.accent.darker(0.08) : (confirm-touch.has-hover ? Theme.accent.brighter(0.1) : Theme.accent);
+                            animate background { duration: Motion.fast; }
                             accessible-role: button;
                             accessible-label: root.dialog-mode >= 3 ? I18n.t("Xóa", "Delete") : I18n.t("Lưu", "Save");
                             Text {
@@ -2123,7 +2287,7 @@ export component AppWindow inherits Window {
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
                             }
-                            TouchArea {
+                            confirm-touch := TouchArea {
                                 mouse-cursor: pointer;
                                 clicked => { root.dialog-confirm(root.dialog-text); }
                             }

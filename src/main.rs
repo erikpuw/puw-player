@@ -58,8 +58,6 @@ struct AppState {
     error_generation: u64,
     failures: usize,
     current_id: Option<i64>,
-    repeat: RepeatMode,
-    shuffle: bool,
     settings: Settings,
     library_tracks: Vec<Track>,
     playlist_tracks: Vec<Track>,
@@ -124,8 +122,6 @@ fn main() -> Result<(), slint::PlatformError> {
         error_generation: u64::MAX,
         failures: 0,
         current_id: None,
-        repeat: RepeatMode::Off,
-        shuffle: false,
         settings: Settings::default(),
         library_tracks: Vec::new(),
         playlist_tracks: Vec::new(),
@@ -168,6 +164,8 @@ fn main() -> Result<(), slint::PlatformError> {
             AppTheme::Light => 1,
             AppTheme::Dark => 2,
         });
+        ui.set_shuffle(s.settings.shuffle);
+        ui.set_repeat_mode(repeat_code(s.settings.repeat));
         apply_theme(&ui, s.settings.theme);
         ui.set_now_device(device_label(&s.player).into());
         refresh_library(&ui, &mut s);
@@ -219,26 +217,26 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
     on!(on_seek_backward, |ui, s| seek_relative(ui, s, -10_000));
     on!(on_seek_forward, |ui, s| seek_relative(ui, s, 10_000));
     on!(on_toggle_shuffle, |ui, s| {
-        s.shuffle = !s.shuffle;
+        s.settings.shuffle = !s.settings.shuffle;
         if let Some(queue) = s.queue.as_mut() {
-            queue.set_shuffle(s.shuffle);
+            queue.set_shuffle(s.settings.shuffle);
         }
-        ui.set_shuffle(s.shuffle);
+        ui.set_shuffle(s.settings.shuffle);
+        let settings = s.settings.clone();
+        let _ = s.library.save_settings(&settings);
     });
     on!(on_cycle_repeat, |ui, s| {
-        s.repeat = match s.repeat {
+        s.settings.repeat = match s.settings.repeat {
             RepeatMode::Off => RepeatMode::All,
             RepeatMode::All => RepeatMode::One,
             RepeatMode::One => RepeatMode::Off,
         };
         if let Some(queue) = s.queue.as_mut() {
-            queue.repeat = s.repeat;
+            queue.repeat = s.settings.repeat;
         }
-        ui.set_repeat_mode(match s.repeat {
-            RepeatMode::Off => 0,
-            RepeatMode::All => 1,
-            RepeatMode::One => 2,
-        });
+        ui.set_repeat_mode(repeat_code(s.settings.repeat));
+        let settings = s.settings.clone();
+        let _ = s.library.save_settings(&settings);
     });
     on!(on_window_minimize, |ui, _s| ui.window().set_minimized(true));
     on!(on_window_maximize, |ui, _s| {
@@ -258,6 +256,7 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
         let visible = !ui.get_lyrics_visible();
         ui.set_lyrics_visible(visible);
         if visible {
+            ui.set_settings_visible(false);
             s.active_lyric = -1;
             request_lyrics(ui, s);
         }
@@ -893,9 +892,18 @@ fn highlight_current(ui: &AppWindow, s: &mut AppState) {
     ui.set_current_track(current);
 }
 
+/// UI code for the repeat button: 0 off, 1 all, 2 one.
+fn repeat_code(mode: RepeatMode) -> i32 {
+    match mode {
+        RepeatMode::Off => 0,
+        RepeatMode::All => 1,
+        RepeatMode::One => 2,
+    }
+}
+
 /// "Play all" starts at the top, or at a random track when shuffle is on.
 fn play_all_start(s: &AppState, len: usize) -> usize {
-    if s.shuffle && len > 0 {
+    if s.settings.shuffle && len > 0 {
         rand::random_range(0..len)
     } else {
         0
@@ -905,8 +913,8 @@ fn play_all_start(s: &AppState, len: usize) -> usize {
 fn start_queue(ui: &AppWindow, s: &mut AppState, tracks: &[Track], index: usize) {
     let ids: Vec<i64> = tracks.iter().map(|track| track.id).collect();
     let mut queue = Queue::new(ids, index);
-    queue.repeat = s.repeat;
-    if s.shuffle {
+    queue.repeat = s.settings.repeat;
+    if s.settings.shuffle {
         queue.set_shuffle(true);
     }
     s.queue = Some(queue);
@@ -1232,7 +1240,23 @@ fn refresh_active_lyric(ui: &AppWindow, s: &mut AppState, force: bool) {
         row.active = index as i32 == active;
     }
     s.lyrics_model.set_vec(s.lyrics_rows.clone());
+    ui.set_lyric_anchor(lyric_anchor(&s.lyrics_rows, active));
     ui.set_active_lyric(active);
+}
+
+/// Bottom edge of the sung line inside the lyric content, mirroring the row geometry in
+/// ui/player.slint: 8px top padding, 34px per line, 14px for a blank one.
+fn lyric_anchor(rows: &[LyricRow], active: i32) -> f32 {
+    if active < 0 {
+        return 0.0;
+    }
+    let shown = usize::try_from(active)
+        .unwrap_or(usize::MAX)
+        .min(rows.len());
+    8.0 + rows[..shown]
+        .iter()
+        .map(|row| if row.text.is_empty() { 14.0 } else { 34.0 })
+        .sum::<f32>()
 }
 
 fn select_playlist(ui: &AppWindow, s: &mut AppState, index: i32) {
@@ -1354,13 +1378,13 @@ fn apply_theme(ui: &AppWindow, theme: AppTheme) {
     } else {
         Palette {
             bg: (0xf4, 0xf5, 0xf2),
-            surface: (0xff, 0xff, 0xff),
+            surface: (0xe8, 0xeb, 0xe5),
             text: (0x1c, 0x21, 0x1d),
-            muted: (0x65, 0x70, 0x69),
-            accent: (0x5f, 0x7d, 0x1f),
-            accent_soft: (0x2a, 0x5f, 0x7d, 0x1f),
-            hover: (0x0d, 0x00, 0x00, 0x00),
-            line: (0x16, 0x00, 0x00, 0x00),
+            muted: (0x58, 0x62, 0x5c),
+            accent: (0x4c, 0x68, 0x14),
+            accent_soft: (0x2a, 0x4c, 0x68, 0x14),
+            hover: (0x12, 0x00, 0x00, 0x00),
+            line: (0x1c, 0x00, 0x00, 0x00),
             on_accent: (0xf7, 0xf8, 0xf4),
         }
     };
