@@ -320,12 +320,16 @@ component Timeline inherits Rectangle {
     in property <float> position;
     in property <float> duration;
     in property <bool> enabled: true;
+    callback scrub-to(float);
     callback seek-to(float);
     min-height: 28px;
     opacity: root.enabled ? 1 : 0.45;
     accessible-role: slider;
     accessible-label: I18n.t("Tiến trình bài hát", "Track progress");
+    property <bool> dragging: false;
+    property <float> drag-ratio: 0;
     property <float> ratio: duration > 0 ? min(1, max(0, position / duration)) : 0;
+    property <float> shown-ratio: root.dragging ? root.drag-ratio : root.ratio;
     property <length> thumb-size: (touch.has-hover || touch.pressed) && root.enabled ? 16px : 14px;
     Rectangle {
         y: (parent.height - 4px) / 2;
@@ -338,12 +342,12 @@ component Timeline inherits Rectangle {
         x: 0;
         y: (parent.height - 4px) / 2;
         height: 4px;
-        width: parent.width * root.ratio;
+        width: parent.width * root.shown-ratio;
         border-radius: 2px;
         background: Theme.accent;
     }
     Rectangle {
-        x: min(parent.width - root.thumb-size, max(0px, parent.width * root.ratio - root.thumb-size / 2));
+        x: min(parent.width - root.thumb-size, max(0px, parent.width * root.shown-ratio - root.thumb-size / 2));
         y: (parent.height - root.thumb-size) / 2;
         width: root.thumb-size;
         height: root.thumb-size;
@@ -354,13 +358,27 @@ component Timeline inherits Rectangle {
         enabled: root.enabled;
         mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
         pointer-event(event) => {
-            if (root.enabled && event.button == PointerEventButton.left) {
-                if (event.kind == PointerEventKind.down || event.kind == PointerEventKind.move) {
-                    root.seek-to(min(1, max(0, (touch.mouse-x / 1px) / (root.width / 1px))) * root.duration);
-                }
+            if (!root.enabled) {
+                return EventResult.reject;
+            }
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                root.dragging = true;
+                root.drag-ratio = min(1, max(0, (touch.mouse-x / 1px) / max(1, root.width / 1px)));
+                root.scrub-to(root.drag-ratio * root.duration);
+                return EventResult.accept;
+            }
+            if (root.dragging && (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel)) {
+                root.dragging = false;
+                root.seek-to(root.drag-ratio * root.duration);
                 return EventResult.accept;
             }
             return EventResult.reject;
+        }
+        moved => {
+            if (root.enabled && root.dragging) {
+                root.drag-ratio = min(1, max(0, (touch.mouse-x / 1px) / max(1, root.width / 1px)));
+                root.scrub-to(root.drag-ratio * root.duration);
+            }
         }
     }
 }
@@ -398,12 +416,16 @@ component VolumeSlider inherits Rectangle {
     volume-touch := TouchArea {
         mouse-cursor: pointer;
         pointer-event(event) => {
-            if (event.button == PointerEventButton.left
-                && (event.kind == PointerEventKind.down || event.kind == PointerEventKind.move)) {
-                root.set-volume(min(1, max(0, (volume-touch.mouse-x / 1px) / (root.width / 1px))));
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                root.set-volume(min(1, max(0, (volume-touch.mouse-x / 1px) / max(1, root.width / 1px))));
                 return EventResult.accept;
             }
             return EventResult.reject;
+        }
+        moved => {
+            if (volume-touch.pressed) {
+                root.set-volume(min(1, max(0, (volume-touch.mouse-x / 1px) / max(1, root.width / 1px))));
+            }
         }
     }
 }
@@ -706,7 +728,6 @@ export component AppWindow inherits Window {
     // 0 = no tag (lossy: bitrate is part of now-source), 2 = lossless, 3 = hi-res.
     in-out property <int> now-quality-tier: 0;
     in-out property <string> now-device: "";
-    in-out property <color> ambient-color: #c8e38c33;
     in-out property <image> cover;
     in-out property <image> cover-prev;
     in-out property <image> cover-next;
@@ -753,6 +774,7 @@ export component AppWindow inherits Window {
     callback previous();
     callback seek-backward();
     callback seek-forward();
+    callback scrub-to(float);
     callback seek-to(float);
     callback set-volume(float);
     callback toggle-shuffle();
@@ -1034,7 +1056,7 @@ export component AppWindow inherits Window {
                     height: parent.height;
                     background: transparent;
 
-                    // Cover Flow Stage + Ambient Mesh Glow
+                    // Cover Flow Stage
                     Rectangle {
                         x: 0;
                         y: 0;
@@ -1042,17 +1064,6 @@ export component AppWindow inherits Window {
                         height: max(240px, parent.height - 266px);
                         background: transparent;
                         clip: true;
-
-                        // Ambient mesh glow extracted from the current track's album cover
-                        Rectangle {
-                            x: (parent.width - self.width) / 2;
-                            y: (parent.height - self.height) / 2;
-                            width: min(parent.width, 460px);
-                            height: min(parent.height, 340px);
-                            border-radius: self.height / 2;
-                            background: @radial-gradient(circle, root.ambient-color 0%, root.ambient-color.transparentize(0.55) 45%, root.ambient-color.transparentize(1.0) 75%);
-                            animate background { duration: Motion.slow; easing: ease-out; }
-                        }
 
                         // Five slots -2..2 placed by continuous position p = slot + flow-shift.
                         // Changing track animates flow-shift from ±1 to 0, so the whole strip slides one slot.
@@ -1089,7 +1100,7 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    // Track Info + Metadata Pill Badge
+                    // Track Info + Metadata (no frame)
                     Rectangle {
                         x: 0;
                         y: parent.height - 262px;
@@ -1116,125 +1127,104 @@ export component AppWindow inherits Window {
                             }
                             HorizontalLayout {
                                 alignment: center;
-                                if root.now-source != "" || root.now-quality-tier >= 2 || root.now-spatial != "": Rectangle {
-                                    height: 26px;
-                                    border-radius: 13px;
-                                    background: Theme.surface;
-                                    border-width: 1px;
-                                    border-color: Theme.line;
-                                    HorizontalLayout {
-                                        padding-left: 12px;
-                                        padding-right: 12px;
-                                        spacing: 8px;
-                                        alignment: center;
-                                        if root.now-source != "": Text {
-                                            text: root.now-source;
-                                            color: Theme.muted;
-                                            font-size: 12px;
-                                            vertical-alignment: center;
-                                            overflow: elide;
-                                        }
-                                        // Lossless mark + label. 3 = Hi-Res Lossless (accent), 2 = Lossless.
-                                        if root.now-quality-tier >= 2: HorizontalLayout {
-                                            spacing: 5px;
-                                            accessible-role: text;
-                                            accessible-label: root.now-quality;
-                                            WaveMark {
-                                                mark-size: 16px;
-                                                tint: root.now-quality-tier == 3 ? Theme.accent : Theme.text;
-                                            }
-                                            Text {
-                                                text: root.now-quality;
-                                                font-size: 12px;
-                                                font-weight: 600;
-                                                color: root.now-quality-tier == 3 ? Theme.accent : Theme.text;
-                                                vertical-alignment: center;
-                                            }
-                                        }
-                                        // Spatial release (usually a stereo/binaural render): headphones hint + name.
-                                        if root.now-spatial != "": HorizontalLayout {
-                                            spacing: 4px;
-                                            accessible-role: text;
-                                            accessible-label: root.now-spatial + I18n.t(", nên nghe bằng tai nghe", ", best on headphones");
-                                            Glyph {
-                                                glyph-size: 14px;
-                                                weight: 1.6px;
-                                                icon: Icons.headphones;
-                                                tint: Theme.muted;
-                                            }
-                                            Text {
-                                                text: root.now-spatial;
-                                                font-size: 12px;
-                                                font-weight: 600;
-                                                color: Theme.text;
-                                                vertical-alignment: center;
-                                            }
-                                        }
+                                spacing: 8px;
+                                if root.now-source != "": Text {
+                                    text: root.now-source;
+                                    color: Theme.muted;
+                                    font-size: 13px;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                }
+                                // Lossless mark + label, no box. 3 = Hi-Res Lossless (accent), 2 = Lossless.
+                                if root.now-quality-tier >= 2: HorizontalLayout {
+                                    spacing: 5px;
+                                    accessible-role: text;
+                                    accessible-label: root.now-quality;
+                                    WaveMark {
+                                        mark-size: 18px;
+                                        tint: root.now-quality-tier == 3 ? Theme.accent : Theme.text;
+                                    }
+                                    Text {
+                                        text: root.now-quality;
+                                        font-size: 12px;
+                                        font-weight: 600;
+                                        color: root.now-quality-tier == 3 ? Theme.accent : Theme.text;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                // Spatial release (usually a stereo/binaural render): headphones hint + name.
+                                if root.now-spatial != "": HorizontalLayout {
+                                    spacing: 4px;
+                                    accessible-role: text;
+                                    accessible-label: root.now-spatial + I18n.t(", nên nghe bằng tai nghe", ", best on headphones");
+                                    Glyph {
+                                        glyph-size: 14px;
+                                        weight: 1.6px;
+                                        icon: Icons.headphones;
+                                        tint: Theme.muted;
+                                    }
+                                    Text {
+                                        text: root.now-spatial;
+                                        font-size: 12px;
+                                        font-weight: 600;
+                                        color: Theme.text;
+                                        vertical-alignment: center;
                                     }
                                 }
                             }
                         }
                     }
 
-                    // Floating Pill Dock: Timeline + Volume merged into one sleek pill bar
-                    Rectangle {
+                    // Timeline + Volume Row (frameless)
+                    HorizontalLayout {
                         x: 0;
-                        y: parent.height - 156px;
+                        y: parent.height - 152px;
                         width: parent.width;
-                        height: 44px;
-                        border-radius: 22px;
-                        background: Theme.surface;
-                        border-width: 1px;
-                        border-color: Theme.line;
-                        HorizontalLayout {
-                            width: parent.width;
-                            height: parent.height;
-                            padding-left: 16px;
-                            padding-right: 16px;
-                            spacing: 12px;
-                            Text {
-                                text: root.position-label;
-                                color: Theme.muted;
-                                font-size: 12px;
-                                min-width: 36px;
-                                vertical-alignment: center;
-                            }
-                            Timeline {
-                                horizontal-stretch: 1;
-                                position: root.position;
-                                duration: root.duration;
-                                enabled: root.has-track;
-                                seek-to(seconds) => { root.seek-to(seconds); }
-                            }
-                            Text {
-                                text: root.duration-label;
-                                color: Theme.muted;
-                                font-size: 12px;
-                                min-width: 36px;
-                                horizontal-alignment: right;
-                                vertical-alignment: center;
-                            }
-                            VDivider { line-height: 18px; }
-                            Glyph {
-                                glyph-size: 18px;
-                                weight: 1.8px;
-                                icon: Icons.volume;
-                                tint: Theme.muted;
-                            }
-                            VolumeSlider {
-                                min-width: 84px;
-                                max-width: 108px;
-                                volume: root.volume;
-                                set-volume(value) => { root.set-volume(value); }
-                            }
-                            Text {
-                                text: root.volume-label;
-                                color: Theme.muted;
-                                font-size: 12px;
-                                min-width: 34px;
-                                horizontal-alignment: right;
-                                vertical-alignment: center;
-                            }
+                        height: 36px;
+                        spacing: 12px;
+                        Text {
+                            text: root.position-label;
+                            color: Theme.muted;
+                            font-size: 12px;
+                            min-width: 36px;
+                            vertical-alignment: center;
+                        }
+                        Timeline {
+                            horizontal-stretch: 1;
+                            position: root.position;
+                            duration: root.duration;
+                            enabled: root.has-track;
+                            scrub-to(seconds) => { root.scrub-to(seconds); }
+                            seek-to(seconds) => { root.seek-to(seconds); }
+                        }
+                        Text {
+                            text: root.duration-label;
+                            color: Theme.muted;
+                            font-size: 12px;
+                            min-width: 36px;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                        }
+                        VDivider { line-height: 18px; }
+                        Glyph {
+                            glyph-size: 18px;
+                            weight: 1.8px;
+                            icon: Icons.volume;
+                            tint: Theme.muted;
+                        }
+                        VolumeSlider {
+                            min-width: 84px;
+                            max-width: 108px;
+                            volume: root.volume;
+                            set-volume(value) => { root.set-volume(value); }
+                        }
+                        Text {
+                            text: root.volume-label;
+                            color: Theme.muted;
+                            font-size: 12px;
+                            min-width: 34px;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
                         }
                     }
 

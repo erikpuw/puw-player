@@ -359,6 +359,8 @@ pub struct RodioOutput {
     _stream: rodio::OutputStream,
     sink: rodio::Sink,
     device: Option<(u32, u16)>,
+    path: Option<PathBuf>,
+    duration_ms: u64,
 }
 
 impl RodioOutput {
@@ -380,16 +382,35 @@ impl RodioOutput {
             _stream: stream,
             sink,
             device,
+            path: None,
+            duration_ms: 0,
         })
+    }
+
+    fn open_decoder(
+        path: &Path,
+    ) -> Result<rodio::Decoder<std::io::BufReader<std::fs::File>>, String> {
+        let file = std::fs::File::open(path)
+            .map_err(|e| format!("{} {e}", tr("Không mở được tệp:", "Could not open file:")))?;
+        let byte_len = file.metadata().ok().map(|m| m.len());
+        let mut builder = rodio::Decoder::builder()
+            .with_data(std::io::BufReader::new(file))
+            .with_seekable(true);
+        if let Some(len) = byte_len {
+            builder = builder.with_byte_len(len);
+        }
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            builder = builder.with_hint(ext);
+        }
+        builder
+            .build()
+            .map_err(|e| format!("{} {e}", tr("Không giải mã được:", "Could not decode:")))
     }
 }
 
 impl AudioOutput for RodioOutput {
     fn load(&mut self, path: &Path) -> Result<u64, String> {
-        let file = std::fs::File::open(path)
-            .map_err(|e| format!("{} {e}", tr("Không mở được tệp:", "Could not open file:")))?;
-        let decoder = rodio::Decoder::new(std::io::BufReader::new(file))
-            .map_err(|e| format!("{} {e}", tr("Không giải mã được:", "Could not decode:")))?;
+        let decoder = Self::open_decoder(path)?;
         use rodio::Source;
         let duration_ms = decoder
             .total_duration()
@@ -400,6 +421,8 @@ impl AudioOutput for RodioOutput {
         let sink = rodio::Sink::connect_new(self._stream.mixer());
         sink.append(decoder);
         self.sink = sink;
+        self.path = Some(path.to_path_buf());
+        self.duration_ms = duration_ms;
         Ok(duration_ms)
     }
     fn play(&mut self) {
@@ -412,9 +435,45 @@ impl AudioOutput for RodioOutput {
         self.sink.stop();
     }
     fn seek(&mut self, position_ms: u64) -> Result<(), String> {
-        self.sink
-            .try_seek(Duration::from_millis(position_ms))
-            .map_err(|e| format!("{} {e}", tr("Không tua được:", "Could not seek:")))
+        // Keep a small margin before EOF so Symphonia does not reject seeks right at the end.
+        let safe_ms = if self.duration_ms > 50 {
+            position_ms.min(self.duration_ms.saturating_sub(50))
+        } else {
+            position_ms
+        };
+        let target = Duration::from_millis(safe_ms);
+        if self.sink.empty()
+            && let Some(path) = self.path.clone()
+        {
+            let volume = self.sink.volume();
+            let decoder = Self::open_decoder(&path)?;
+            let sink = rodio::Sink::connect_new(self._stream.mixer());
+            sink.set_volume(volume);
+            sink.pause();
+            sink.append(decoder);
+            self.sink = sink;
+        }
+        if self.sink.try_seek(target).is_ok() {
+            return Ok(());
+        }
+        // Fallback: if the stream could not seek in-place, reopen and seek forward from start.
+        if let Some(path) = self.path.clone() {
+            let paused = self.sink.is_paused();
+            let volume = self.sink.volume();
+            let decoder = Self::open_decoder(&path)?;
+            let sink = rodio::Sink::connect_new(self._stream.mixer());
+            sink.set_volume(volume);
+            if paused {
+                sink.pause();
+            }
+            sink.append(decoder);
+            self.sink = sink;
+            return self
+                .sink
+                .try_seek(target)
+                .map_err(|e| format!("{} {e}", tr("Không tua được:", "Could not seek:")));
+        }
+        Err(tr("Không tua được", "Could not seek").into())
     }
     fn position_ms(&self) -> u64 {
         self.sink.get_pos().as_millis() as u64
@@ -538,10 +597,31 @@ fn run_worker<O: AudioOutput>(
 ) {
     let mut engine = Engine::new(output);
     loop {
+        let mut batch = Vec::new();
         match rx.recv_timeout(Duration::from_millis(50)) {
-            Ok(Message::Command(command)) => engine.handle(command),
+            Ok(Message::Command(command)) => batch.push(command),
             Ok(Message::Shutdown) | Err(RecvTimeoutError::Disconnected) => break,
             Err(RecvTimeoutError::Timeout) => {}
+        }
+        while let Ok(msg) = rx.try_recv() {
+            match msg {
+                Message::Command(cmd) => {
+                    // Coalesce back-to-back Seek or Volume commands so dragging never floods the decoder.
+                    match (batch.last_mut(), &cmd) {
+                        (Some(PlaybackCommand::Seek(prev)), PlaybackCommand::Seek(next)) => {
+                            *prev = *next;
+                        }
+                        (Some(PlaybackCommand::Volume(prev)), PlaybackCommand::Volume(next)) => {
+                            *prev = *next;
+                        }
+                        _ => batch.push(cmd),
+                    }
+                }
+                Message::Shutdown => return,
+            }
+        }
+        for command in batch {
+            engine.handle(command);
         }
         engine.tick();
         if let Ok(mut slot) = shared.lock() {
