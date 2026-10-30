@@ -20,10 +20,11 @@ Cơ sở dữ liệu nằm tại `%APPDATA%\puw-player\library.db`. Lần chạy
 ## Tính năng
 
 - Thêm nhạc từ tệp hoặc thư mục; chỉ lưu đường dẫn, không di chuyển/sao chép/xóa file gốc.
-- Thư viện, playlist (tạo/đổi tên/xóa, thêm bài đang phát, bỏ bài khỏi playlist) lưu qua SQLite.
-- Hàng đợi khi phát: lặp Tắt → Tất cả → Một bài; shuffle có lịch sử để Previous quay đúng bài.
+- Thư viện, playlist (tạo/đổi tên/xóa, bỏ bài khỏi playlist) lưu qua SQLite. Rê chuột lên bài ở tab Bài hát → nút **+** để thêm vào playlist có sẵn hoặc tạo playlist mới.
+- Hàng đợi khi phát: lặp Tắt → Tất cả → Một bài (icon có số 1); shuffle trộn mọi bài còn lại của hàng đợi, có lịch sử để Previous quay đúng bài; Phát tất cả khi bật shuffle bắt đầu từ bài ngẫu nhiên.
+- Morph icon: Play ↔ Pause biến hình liên tục.
 - Cover flow từ chính hàng đợi (2 bìa mỗi bên, phối cảnh); Next/Previous trượt cả dải một nấc, tắt khi Windows giảm chuyển động. Bìa chính giữ tỷ lệ, không crop, không phóng to quá 256×256.
-- Lời: ưu tiên `.lrc` cùng tên, rồi cache, rồi LRCLIB (mặc định tắt). Click dòng có timestamp để tua; nút "Theo bài hát" khôi phục bám dòng; chỉnh lệch ±0,5 giây lưu riêng cho từng bài.
+- Lời: ưu tiên `.lrc` cùng tên, rồi cache, rồi LRCLIB (mặc định tắt). LRCLIB lỗi 502/503/504 được tự thử lại một lần. Click dòng có timestamp để tua; nút "Theo bài hát" khôi phục bám dòng; chỉnh lệch ±0,5 giây lưu riêng cho từng bài.
 - Theme Hệ thống/Sáng/Tối; DWM bo góc 12 px khi không maximize; tôn trọng cài đặt giảm chuyển động của Windows.
 - Phím: `Space` phát/tạm dừng, `←`/`→` tua ±10 giây, `↑`/`↓` âm lượng, `Esc` đóng lớp đang mở.
 
@@ -40,7 +41,6 @@ Chưa hỗ trợ/cam kết: WMA, APE, DSD, HE-AAC, Opus, bit-perfect/exclusive o
 
 - Cửa sổ không viền có kéo, resize, minimize/maximize/close; **Snap Layouts của Windows chưa được kiểm chứng**.
 - Chưa có kéo-thả tệp vào cửa sổ; thêm nhạc qua menu **+**.
-- Nút "Thêm bài vào playlist" thêm bài đang phát; muốn thêm bài khác hãy phát bài đó trước.
 - Lời online cần mạng; mặc định tắt. Một số bài không có lời hoặc là bản không lời sẽ hiển thị thông báo.
 - Bìa chỉ lấy từ tag nhúng trong file; không đọc `cover.jpg` cạnh file.
 - DPI đã kiểm tra ở mức hiển thị hiện tại (100%); chưa chụp đối chiếu 125%/150% trong lần này.

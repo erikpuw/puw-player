@@ -43,6 +43,19 @@ fn shuffle_has_no_duplicates_and_previous_uses_history() {
 }
 
 #[test]
+fn shuffle_from_middle_still_plays_every_track() {
+    let mut q = Queue::new(vec![1, 2, 3, 4, 5], 3);
+    q.set_shuffle(true);
+    assert_eq!(q.current(), Some(4));
+    let mut played = vec![4];
+    while let Some(id) = q.advance(false) {
+        played.push(id);
+    }
+    played.sort();
+    assert_eq!(played, vec![1, 2, 3, 4, 5]);
+}
+
+#[test]
 fn single_track_shuffle_and_repeat_are_bounded() {
     let mut q = Queue::new(vec![7], 0);
     q.set_shuffle(true);

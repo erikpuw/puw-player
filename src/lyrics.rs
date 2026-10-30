@@ -237,13 +237,22 @@ impl LyricsResolver {
         &self,
         url: reqwest::Url,
     ) -> Result<Option<T>, String> {
-        let response = self.client.get(url).send().map_err(|error| {
-            if error.is_timeout() {
-                "Hết thời gian tải lời".to_string()
-            } else {
-                format!("Lỗi mạng khi tải lời: {error}")
+        // 502/503/504 are usually a brief LRCLIB outage: retry once (we run on a worker thread).
+        let mut attempt = 0;
+        let response = loop {
+            let response = self.client.get(url.clone()).send().map_err(|error| {
+                if error.is_timeout() {
+                    "Hết thời gian tải lời".to_string()
+                } else {
+                    format!("Lỗi mạng khi tải lời: {error}")
+                }
+            })?;
+            if !matches!(response.status().as_u16(), 502..=504) || attempt == 1 {
+                break response;
             }
-        })?;
+            attempt += 1;
+            std::thread::sleep(std::time::Duration::from_millis(800));
+        };
         match response.status().as_u16() {
             200 => response
                 .json::<T>()
@@ -258,6 +267,9 @@ impl LyricsResolver {
                     .unwrap_or("một lúc");
                 Err(format!("LRCLIB giới hạn yêu cầu, thử lại sau {retry} giây"))
             }
+            status @ 500..=599 => Err(format!(
+                "Máy chủ LRCLIB đang lỗi tạm thời ({status}). Thử bật lại lời sau ít phút."
+            )),
             status => Err(format!("LRCLIB trả lỗi {status}")),
         }
     }

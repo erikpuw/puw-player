@@ -59,8 +59,12 @@ impl Queue {
         }
         self.shuffle = enabled;
         if enabled {
-            if self.cursor + 1 < self.order.len() {
-                self.order[self.cursor + 1..].shuffle(&mut rand::rng());
+            // Current track stays playing at the front; every other track is shuffled after it.
+            if !self.order.is_empty() {
+                let current = self.order.remove(self.cursor);
+                self.order.shuffle(&mut rand::rng());
+                self.order.insert(0, current);
+                self.cursor = 0;
             }
         } else {
             let id = self.current();

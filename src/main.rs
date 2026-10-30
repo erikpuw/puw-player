@@ -231,7 +231,6 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
             RepeatMode::All => 1,
             RepeatMode::One => 2,
         });
-        ui.set_repeat_label(repeat_label(s.repeat).into());
     });
     on!(on_window_minimize, |ui, _s| ui.window().set_minimized(true));
     on!(on_window_maximize, |ui, _s| {
@@ -318,7 +317,8 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
             set_status(ui, s, "Playlist này chưa có bài hát.".to_string());
             return;
         }
-        start_queue(ui, s, &tracks, 0);
+        let start = play_all_start(s, tracks.len());
+        start_queue(ui, s, &tracks, start);
     });
 
     on!(on_add_files, |ui, s| {
@@ -348,6 +348,12 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
         match mode {
             1 => match s.library.create_playlist(&text) {
                 Ok(id) => {
+                    // Created from the "add to playlist" picker: put that song in right away.
+                    let picked = ui.get_picker_track();
+                    if picked >= 0 {
+                        ui.set_picker_track(-1);
+                        add_library_track(&ui, &mut s, picked, id);
+                    }
                     refresh_playlists(&ui, &mut s);
                     let index = s.playlists.iter().position(|playlist| playlist.id == id);
                     if let Some(index) = index {
@@ -433,23 +439,19 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
         ui.set_lyric_offset(format!("{:+.1}s", s.lyric_offset_ms as f64 / 1000.0).into());
         refresh_active_lyric(&ui, &mut s, true);
     });
-    on!(on_add_to_playlist, |ui, s| {
-        let Some(playlist) = selected_playlist(ui, s) else {
-            set_status(ui, s, "Chọn một playlist trước.".to_string());
+    let weak = handle.clone();
+    let state_rc = state.clone();
+    ui.on_add_track_to_playlist(move |track_index, playlist_index| {
+        let Some(ui) = weak.upgrade() else { return };
+        let mut s = state_rc.borrow_mut();
+        let Some(playlist_id) = s
+            .playlists
+            .get(playlist_index.max(0) as usize)
+            .map(|p| p.id)
+        else {
             return;
         };
-        let Some(id) = s.current_id else {
-            set_status(ui, s, "Chưa có bài đang phát.".to_string());
-            return;
-        };
-        match s.library.add_to_playlist(playlist.id, id) {
-            Ok(()) => {
-                refresh_playlists(ui, s);
-                refresh_playlist_tracks(ui, s);
-                set_status(ui, s, "Đã thêm bài vào playlist.".to_string());
-            }
-            Err(error) => set_status(ui, s, error),
-        }
+        add_library_track(&ui, &mut s, track_index, playlist_id);
     });
     let weak = handle.clone();
     let state_rc = state.clone();
@@ -765,6 +767,15 @@ fn highlight_current(ui: &AppWindow, s: &mut AppState) {
     ui.set_current_track(current);
 }
 
+/// "Play all" starts at the top, or at a random track when shuffle is on.
+fn play_all_start(s: &AppState, len: usize) -> usize {
+    if s.shuffle && len > 0 {
+        rand::random_range(0..len)
+    } else {
+        0
+    }
+}
+
 fn start_queue(ui: &AppWindow, s: &mut AppState, tracks: &[Track], index: usize) {
     let ids: Vec<i64> = tracks.iter().map(|track| track.id).collect();
     let mut queue = Queue::new(ids, index);
@@ -863,26 +874,21 @@ fn toggle_play(ui: &AppWindow, s: &mut AppState) {
             s.player.send(PlaybackCommand::Pause);
             ui.set_playing(false);
         }
+        // Nothing chosen yet (fresh start is Idle with no queue): play the whole library.
+        _ if s.current_id.is_none() => {
+            let tracks = s.library_tracks.clone();
+            if tracks.is_empty() {
+                set_status(ui, s, "Thư viện chưa có bài hát.".to_string());
+                return;
+            }
+            let start = play_all_start(s, tracks.len());
+            start_queue(ui, s, &tracks, start);
+        }
         PlaybackState::Paused | PlaybackState::Stopped | PlaybackState::Ended => {
-            if s.current_id.is_none() {
-                let tracks = s.library_tracks.clone();
-                if tracks.is_empty() {
-                    set_status(ui, s, "Thư viện chưa có bài hát.".to_string());
-                    return;
-                }
-                start_queue(ui, s, &tracks, 0);
-            } else {
-                s.player.send(PlaybackCommand::Play);
-                ui.set_playing(true);
-            }
+            s.player.send(PlaybackCommand::Play);
+            ui.set_playing(true);
         }
-        PlaybackState::Error | PlaybackState::Idle => {
-            if let Some(queue) = s.queue.as_ref()
-                && queue.current().is_some()
-            {
-                load_current(ui, s);
-            }
-        }
+        PlaybackState::Error | PlaybackState::Idle => load_current(ui, s),
     }
 }
 
@@ -1013,6 +1019,32 @@ fn select_playlist(ui: &AppWindow, s: &mut AppState, index: i32) {
     }
     ui.set_current_playlist(index);
     refresh_playlist_tracks(ui, s);
+}
+
+fn add_library_track(ui: &AppWindow, s: &mut AppState, track_index: i32, playlist_id: i64) {
+    let Some(track) = s.library_tracks.get(track_index.max(0) as usize).cloned() else {
+        return;
+    };
+    match s.library.add_to_playlist(playlist_id, track.id) {
+        Ok(()) => {
+            refresh_playlists(ui, s);
+            if selected_playlist(ui, s).is_some_and(|p| p.id == playlist_id) {
+                refresh_playlist_tracks(ui, s);
+            }
+            let name = s
+                .playlists
+                .iter()
+                .find(|p| p.id == playlist_id)
+                .map(|p| p.name.clone())
+                .unwrap_or_default();
+            set_status(
+                ui,
+                s,
+                format!("Đã thêm “{}” vào “{name}”.", display_title(&track)),
+            );
+        }
+        Err(error) => set_status(ui, s, error),
+    }
 }
 
 fn selected_playlist(ui: &AppWindow, s: &AppState) -> Option<Playlist> {
@@ -1148,15 +1180,6 @@ fn device_label(player: &Player) -> String {
         String::new()
     } else {
         format!("Ra · {device}")
-    }
-}
-
-fn repeat_label(mode: RepeatMode) -> &'static str {
-    match mode {
-        // Grey icon already says "off"; label only names the active mode.
-        RepeatMode::Off => "",
-        RepeatMode::All => "Tất cả",
-        RepeatMode::One => "Một bài",
     }
 }
 

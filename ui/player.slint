@@ -43,7 +43,6 @@ export global Motion {
 
 export global Icons {
     out property <string> play: "M 8 5.5 L 19 12 L 8 18.5 Z";
-    out property <string> pause: "M 8.5 4.5 V 19.5 M 15.5 4.5 V 19.5";
     out property <string> previous: "M 5.5 5.5 H 8.5 V 18.5 H 5.5 Z M 19 5.5 L 9.5 12 L 19 18.5 Z";
     out property <string> next: "M 15.5 5.5 H 18.5 V 18.5 H 15.5 Z M 5 5.5 L 14.5 12 L 5 18.5 Z";
     out property <string> stop: "M 6.5 6.5 H 17.5 V 17.5 H 6.5 Z";
@@ -99,6 +98,8 @@ component IconButton inherits Rectangle {
     in property <string> icon;
     in property <string> label;
     in property <string> badge: "";
+    // Lets a badge grow in/out instead of popping (repeat-one "1").
+    in property <bool> badge-shown: true;
     in property <length> size: 34px;
     in property <length> icon-size: 18px;
     in property <bool> filled-icon: false;
@@ -136,9 +137,11 @@ component IconButton inherits Rectangle {
             width: parent.width;
             height: parent.height;
             text: root.badge;
-            font-size: 9px;
+            opacity: root.badge-shown ? 1 : 0;
+            font-size: root.badge-shown ? 9px : 3px;
+            animate opacity, font-size { duration: Motion.slow; easing: ease-out; }
             font-weight: 700;
-            color: root.tint;
+            color: root.active ? Theme.accent : root.tint;
             horizontal-alignment: center;
             vertical-alignment: center;
         }
@@ -155,7 +158,7 @@ component PerspectiveCover inherits Rectangle {
     in property <image> source;
     in property <length> left-height;
     in property <length> right-height;
-    property <int> strips: 32;
+    property <int> strips: 20;
     visible: source.width > 0;
     for _s[i] in root.strips: Image {
         property <float> t: (i + 0.5) / root.strips;
@@ -217,6 +220,25 @@ component FlowCover inherits Rectangle {
         left-height: root.p < 0 ? root.outer : root.inner;
         right-height: root.p < 0 ? root.inner : root.outer;
     }
+}
+
+// Play triangle <-> pause bars morph. Both shapes are two quads with matching vertices,
+// so every point interpolates linearly with `m` (0 = play, 1 = pause).
+component PlayPauseMorph inherits Path {
+    in property <float> m;
+    viewbox-width: 24;
+    viewbox-height: 24;
+    stroke: transparent;
+    MoveTo { x: 8 - 1.5 * root.m; y: 5.5 - 0.5 * root.m; }
+    LineTo { x: 13.6 - 3.1 * root.m; y: 8.75 - 3.75 * root.m; }
+    LineTo { x: 13.6 - 3.1 * root.m; y: 15.25 + 3.75 * root.m; }
+    LineTo { x: 8 - 1.5 * root.m; y: 18.5 + 0.5 * root.m; }
+    Close { }
+    MoveTo { x: 13.5; y: 8.75 - 3.75 * root.m; }
+    LineTo { x: 19 - 1.5 * root.m; y: 12 - 7 * root.m; }
+    LineTo { x: 19 - 1.5 * root.m; y: 12 + 7 * root.m; }
+    LineTo { x: 13.5; y: 15.25 + 3.75 * root.m; }
+    Close { }
 }
 
 // Full-width hairline that fades out at both ends.
@@ -369,9 +391,12 @@ component TrackListItem inherits Rectangle {
     in property <bool> missing;
     in property <bool> current;
     in property <bool> selected;
-    in property <bool> removable: false;
+    // Optional hover action at the row's right edge (add to playlist / remove from playlist).
+    in property <string> action-icon: "";
+    in property <string> action-label: "";
     callback activate();
-    callback remove();
+    callback action();
+    property <bool> show-action: action-icon != "" && (touch.has-hover || action-touch.has-hover);
     height: 72px;
     background: selected ? Theme.hover : (touch.has-hover ? Theme.hover : transparent);
     accessible-role: list-item;
@@ -427,38 +452,40 @@ component TrackListItem inherits Rectangle {
         width: 56px;
         height: parent.height;
         text: root.duration;
+        visible: !root.show-action;
         color: Theme.muted;
         font-size: 14px;
         horizontal-alignment: right;
         vertical-alignment: center;
     }
-    Rectangle {
-        visible: root.removable && touch.has-hover;
-        x: parent.width - 34px;
-        y: (parent.height - 26px) / 2;
-        width: 26px;
-        height: 26px;
-        border-radius: 13px;
-        background: Theme.hover;
-        accessible-role: button;
-        accessible-label: "Bỏ khỏi playlist";
-        Glyph {
-            x: 6px;
-            y: 6px;
-            width: 14px;
-            height: 14px;
-            glyph-size: 14px;
-            icon: Icons.trash;
-            tint: Theme.muted;
-        }
-        TouchArea {
-            mouse-cursor: pointer;
-            clicked => { root.remove(); }
-        }
-    }
     touch := TouchArea {
         mouse-cursor: pointer;
         clicked => { root.activate(); }
+    }
+    // Declared after the row TouchArea so it sits on top and receives its own clicks.
+    Rectangle {
+        visible: root.show-action;
+        x: parent.width - 40px;
+        y: (parent.height - 30px) / 2;
+        width: 30px;
+        height: 30px;
+        border-radius: 15px;
+        background: action-touch.has-hover ? Theme.accent-soft : Theme.hover;
+        accessible-role: button;
+        accessible-label: root.action-label;
+        Glyph {
+            x: 7px;
+            y: 7px;
+            width: 16px;
+            height: 16px;
+            glyph-size: 16px;
+            icon: root.action-icon;
+            tint: action-touch.has-hover ? Theme.accent : Theme.text;
+        }
+        action-touch := TouchArea {
+            mouse-cursor: pointer;
+            clicked => { root.action(); }
+        }
     }
 }
 
@@ -555,6 +582,8 @@ export component AppWindow inherits Window {
     in-out property <bool> window-maximized;
     in-out property <bool> add-menu-visible;
     in-out property <int> dialog-mode: 0;
+    // Library row whose "add to playlist" picker is open; -1 = closed.
+    in-out property <int> picker-track: -1;
     in-out property <string> dialog-text;
     in-out property <string> dialog-title;
     in-out property <string> status-message;
@@ -577,15 +606,15 @@ export component AppWindow inherits Window {
     in-out property <string> position-label: "00:00";
     in-out property <string> duration-label: "00:00";
     in-out property <string> volume-label: "100%";
-    in-out property <string> repeat-label: "";
 
     // Cover-flow slide: flow-shift eases from ±1 to 0 after a track change.
     property <float> flow-from: 0;
     property <duration> flow-start;
     property <bool> flow-active: false;
-    property <duration> flow-duration: Motion.slow * 1.4;
-    property <float> flow-left: flow-active ? 1 - min(1, (animation-tick() - flow-start) / flow-duration) : 0;
-    out property <float> flow-shift: flow-from * flow-left * flow-left * flow-left;
+    property <duration> flow-duration: Motion.slow * 1.8;
+    property <float> flow-t: flow-active ? min(1, (animation-tick() - flow-start) / flow-duration) : 1;
+    // Smoothstep: gentle start and finish, so the first frame after a track change doesn't jump.
+    out property <float> flow-shift: flow-from * (1 - flow-t * flow-t * (3 - 2 * flow-t));
     // dir: +1 = moved to next (strip slides left), -1 = previous, 0 = jump without slide.
     public function start-flow(dir: float) {
         if (dir == 0 || flow-duration <= 0ms) {
@@ -623,7 +652,7 @@ export component AppWindow inherits Window {
     callback create-playlist(string);
     callback rename-playlist(string);
     callback delete-playlist();
-    callback add-to-playlist();
+    callback add-track-to-playlist(int, int);
     callback remove-playlist-track(int);
     callback toggle-lyrics();
     callback toggle-settings();
@@ -650,6 +679,13 @@ export component AppWindow inherits Window {
         if (root.following && root.active-lyric >= 0) {
             lyric-scroll.content-y = max(0px, root.active-lyric * 34px - 150px);
         }
+    }
+    // Return keyboard shortcuts to the window once a dialog or picker closes.
+    changed dialog-mode => {
+        if (root.dialog-mode == 0 && root.picker-track < 0) { app-focus.focus(); }
+    }
+    changed picker-track => {
+        if (root.picker-track < 0 && root.dialog-mode == 0) { app-focus.focus(); }
     }
     changed following => {
         if (root.following && root.active-lyric >= 0) {
@@ -691,6 +727,8 @@ export component AppWindow inherits Window {
                 width: parent.width;
                 height: 56px;
                 background: transparent;
+                // Above the body so the "+" dropdown is not painted over by the right column.
+                z: 10;
 
                 WindowMoveArea {
                     x: 0;
@@ -1000,29 +1038,14 @@ export component AppWindow inherits Window {
                             opacity: root.has-track ? 1 : 0.45;
                             accessible-role: button;
                             accessible-label: root.playing ? "Tạm dừng" : "Phát";
-                            Glyph {
-                                x: 22px;
-                                y: 22px;
-                                width: 26px;
-                                height: 26px;
-                                glyph-size: 26px;
-                                icon: Icons.play;
-                                filled: true;
-                                tint: Theme.on-accent;
-                                opacity: root.playing ? 0 : 1;
-                                animate opacity { duration: Motion.fast; }
-                            }
-                            Glyph {
+                            PlayPauseMorph {
                                 x: 20px;
                                 y: 20px;
                                 width: 30px;
                                 height: 30px;
-                                glyph-size: 30px;
-                                icon: Icons.pause;
-                                weight: 4.2px;
-                                tint: Theme.on-accent;
-                                opacity: root.playing ? 1 : 0;
-                                animate opacity { duration: Motion.fast; }
+                                fill: Theme.on-accent;
+                                m: root.playing ? 1 : 0;
+                                animate m { duration: Motion.slow; easing: ease-in-out; }
                             }
                             TouchArea { mouse-cursor: pointer; clicked => { root.play-pause(); } }
                         }
@@ -1047,31 +1070,19 @@ export component AppWindow inherits Window {
                             tint: Theme.text;
                             clicked => { root.seek-forward(); }
                         }
-                        // Label sits below the button; equal top padding keeps the button on the row's center line.
-                        VerticalLayout {
-                            spacing: 0;
-                            alignment: center;
-                            padding-top: 18px;
-                            IconButton {
-                                icon: Icons.repeat;
-                                label: "Lặp lại";
-                                size: 46px;
-                                icon-size: 28px;
-                                weight: 2.2px;
-                                plate: true;
-                                tint: Theme.text;
-                                active: root.repeat-mode > 0;
-                                clicked => { root.cycle-repeat(); }
-                            }
-                            Text {
-                                height: 18px;
-                                vertical-alignment: bottom;
-                                text: root.repeat-label;
-                                color: root.repeat-mode > 0 ? Theme.accent : Theme.muted;
-                                font-size: 12px;
-                                font-weight: 600;
-                                horizontal-alignment: center;
-                            }
+                        // Icon alone shows the mode: grey = off, accent = all, accent + "1" = one track.
+                        IconButton {
+                            icon: Icons.repeat;
+                            label: root.repeat-mode == 0 ? "Lặp: tắt" : (root.repeat-mode == 1 ? "Lặp: tất cả" : "Lặp: một bài");
+                            size: 46px;
+                            icon-size: 28px;
+                            weight: 2.2px;
+                            plate: true;
+                            tint: Theme.text;
+                            badge: "1";
+                            badge-shown: root.repeat-mode == 2;
+                            active: root.repeat-mode > 0;
+                            clicked => { root.cycle-repeat(); }
                         }
                     }
 
@@ -1197,6 +1208,9 @@ export component AppWindow inherits Window {
                                 missing: row.missing;
                                 current: root.current-track == i;
                                 selected: root.selected-track == i;
+                                action-icon: Icons.plus;
+                                action-label: "Thêm vào playlist";
+                                action => { root.picker-track = i; }
                                 activate => {
                                     root.selected-track = i;
                                     root.activate-track(i);
@@ -1286,12 +1300,6 @@ export component AppWindow inherits Window {
                                     }
                                     Rectangle { horizontal-stretch: 1; }
                                     IconButton {
-                                        icon: Icons.plus;
-                                        label: "Thêm bài đang phát vào playlist";
-                                        icon-size: 15px;
-                                        clicked => { root.add-to-playlist(); }
-                                    }
-                                    IconButton {
                                         icon: Icons.play;
                                         filled-icon: true;
                                         label: "Phát playlist";
@@ -1346,8 +1354,9 @@ export component AppWindow inherits Window {
                                         missing: row.missing;
                                         current: root.current-playlist-track == ti;
                                         selected: false;
-                                        removable: true;
-                                        remove => { root.remove-playlist-track(ti); }
+                                        action-icon: Icons.trash;
+                                        action-label: "Bỏ khỏi playlist";
+                                        action => { root.remove-playlist-track(ti); }
                                         activate => { root.activate-track(ti); }
                                     }
                                 }
@@ -1512,7 +1521,9 @@ export component AppWindow inherits Window {
                         height: parent.height;
                         background: transparent;
                         visible: root.settings-visible;
+                        // `start` keeps rows at their natural height instead of sharing out the spare space.
                         VerticalLayout {
+                            alignment: start;
                             spacing: 12px;
                             padding-top: 4px;
                             Rectangle {
@@ -1628,9 +1639,10 @@ export component AppWindow inherits Window {
                     }
                 }
 
+                // Toasts sit at the bottom of the right column, clear of the player controls.
                 Rectangle {
                     visible: root.importing;
-                    x: 24px;
+                    x: parent.width * 0.55 + 20px;
                     y: parent.height - 60px;
                     width: 240px;
                     height: 40px;
@@ -1648,9 +1660,9 @@ export component AppWindow inherits Window {
                 }
                 Rectangle {
                     visible: root.has-status;
-                    x: 24px;
+                    x: parent.width * 0.55 + 20px;
                     y: parent.height - 60px;
-                    width: min(parent.width - 48px, status-text.preferred-width + 58px);
+                    width: min(parent.width * 0.45 - 40px, status-text.preferred-width + 58px);
                     height: 40px;
                     border-radius: 8px;
                     background: Theme.surface;
@@ -1678,6 +1690,128 @@ export component AppWindow inherits Window {
                 }
             }
 
+        // "Add to playlist" picker for one library track
+        Rectangle {
+            x: 0;
+            y: 0;
+            width: parent.width;
+            height: parent.height;
+            background: #000000aa;
+            visible: root.picker-track >= 0 && root.dialog-mode == 0;
+            z: 20;
+            TouchArea { clicked => { root.picker-track = -1; } }
+            Rectangle {
+                width: 320px;
+                height: picker-layout.preferred-height;
+                x: (parent.width - 320px) / 2;
+                y: (parent.height - self.height) / 2;
+                border-radius: 12px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.line;
+                TouchArea { }
+                picker-layout := VerticalLayout {
+                    width: parent.width;
+                    height: parent.height;
+                    padding: 14px;
+                    spacing: 4px;
+                    Text {
+                        text: "Thêm vào playlist";
+                        color: Theme.text;
+                        font-size: 16px;
+                        font-weight: 600;
+                        height: 32px;
+                        vertical-alignment: center;
+                    }
+                    if root.playlists.length == 0: Text {
+                        text: "Chưa có playlist nào.";
+                        color: Theme.muted;
+                        font-size: 13px;
+                        height: 30px;
+                        vertical-alignment: center;
+                    }
+                    for pl[pi] in root.playlists: Rectangle {
+                        min-height: 48px;
+                        max-height: 48px;
+                        border-radius: 8px;
+                        background: pick-touch.has-hover ? Theme.hover : transparent;
+                        accessible-role: button;
+                        accessible-label: pl.name;
+                        Image {
+                            x: 8px;
+                            y: 6px;
+                            width: 36px;
+                            height: 36px;
+                            source: pl.cover;
+                            image-fit: ImageFit.cover;
+                        }
+                        Text {
+                            x: 54px;
+                            width: parent.width - 120px;
+                            height: parent.height;
+                            text: pl.name;
+                            color: Theme.text;
+                            font-size: 14px;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                        Text {
+                            x: parent.width - 62px;
+                            width: 54px;
+                            height: parent.height;
+                            text: pl.count;
+                            color: Theme.muted;
+                            font-size: 12px;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                        }
+                        pick-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.add-track-to-playlist(root.picker-track, pi);
+                                root.picker-track = -1;
+                            }
+                        }
+                    }
+                    Rectangle {
+                        min-height: 44px;
+                        max-height: 44px;
+                        border-radius: 8px;
+                        background: new-touch.has-hover ? Theme.accent-soft : transparent;
+                        accessible-role: button;
+                        accessible-label: "Tạo playlist mới";
+                        Glyph {
+                            x: 16px;
+                            y: (parent.height - 18px) / 2;
+                            width: 18px;
+                            height: 18px;
+                            glyph-size: 18px;
+                            icon: Icons.plus;
+                            tint: Theme.accent;
+                        }
+                        Text {
+                            x: 54px;
+                            width: parent.width - 60px;
+                            height: parent.height;
+                            text: "Tạo playlist mới…";
+                            color: Theme.accent;
+                            font-size: 14px;
+                            vertical-alignment: center;
+                        }
+                        // Keeps picker-track so the new playlist receives this song on save.
+                        new-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.dialog-mode = 1;
+                                root.dialog-title = "Playlist mới";
+                                root.dialog-text = "";
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Modal dialog: create / rename / delete playlist
         Rectangle {
             x: 0;
@@ -1686,38 +1820,42 @@ export component AppWindow inherits Window {
             height: parent.height;
             background: #000000cc;
             visible: root.dialog-mode > 0;
+            z: 20;
             TouchArea { }
+            // Card height follows its content; hidden rows use `if` so they take no space.
             Rectangle {
                 width: 380px;
-                height: 178px;
+                height: dialog-layout.preferred-height;
                 x: (parent.width - 380px) / 2;
-                y: (parent.height - 178px) / 2;
+                y: (parent.height - self.height) / 2;
                 border-radius: 12px;
                 background: Theme.surface;
                 border-width: 1px;
                 border-color: Theme.line;
-                VerticalLayout {
+                dialog-layout := VerticalLayout {
                     width: parent.width;
                     height: parent.height;
                     padding: 18px;
-                    spacing: 12px;
+                    spacing: 14px;
                     Text {
                         text: root.dialog-title;
                         color: Theme.text;
                         font-size: 16px;
                         font-weight: 600;
                     }
-                    Rectangle {
-                        min-height: 38px;
+                    if root.dialog-mode == 1 || root.dialog-mode == 2: Rectangle {
+                        min-height: 40px;
+                        max-height: 40px;
                         border-radius: 8px;
                         background: Theme.bg;
                         border-width: 1px;
-                        border-color: Theme.line;
-                        visible: root.dialog-mode < 3;
-                        TextInput {
-                            x: 10px;
-                            width: parent.width - 20px;
+                        border-color: name-input.has-focus ? Theme.accent : Theme.line;
+                        name-input := TextInput {
+                            x: 12px;
+                            width: parent.width - 24px;
                             height: parent.height;
+                            vertical-alignment: center;
+                            init => { self.focus(); self.select-all(); }
                             text: root.dialog-text;
                             color: Theme.text;
                             font-size: 14px;
@@ -1726,14 +1864,12 @@ export component AppWindow inherits Window {
                             accepted => { root.dialog-confirm(self.text); }
                         }
                     }
-                    Text {
-                        visible: root.dialog-mode == 3;
+                    if root.dialog-mode == 3: Text {
                         text: "Playlist sẽ bị xóa khỏi thư viện. Tệp nhạc trên máy không bị ảnh hưởng.";
                         color: Theme.muted;
                         font-size: 13px;
                         wrap: word-wrap;
                     }
-                    Rectangle { vertical-stretch: 1; background: transparent; }
                     HorizontalLayout {
                         alignment: end;
                         spacing: 8px;

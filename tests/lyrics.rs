@@ -212,6 +212,34 @@ fn not_found_and_instrumental_are_reported() {
 }
 
 #[test]
+fn transient_server_error_is_retried_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let seen = calls.clone();
+    let server = MockServer::start(Duration::ZERO, move |_, _| {
+        if seen.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+            (503, vec![], String::new())
+        } else {
+            (200, vec![], SYNCED.into())
+        }
+    });
+    let mut store = MemoryStore::default();
+    let resolver = LyricsResolver::with_endpoint(&server.base, Duration::from_secs(2));
+    let resolved = resolver
+        .resolve(&request(5, 1, dir.path()), &mut store, true)
+        .unwrap();
+    assert!(!resolved.lines.is_empty());
+    assert_eq!(server.hits().len(), 2);
+
+    let down = MockServer::start(Duration::ZERO, |_, _| (503, vec![], String::new()));
+    let resolver = LyricsResolver::with_endpoint(&down.base, Duration::from_secs(2));
+    let error = resolver
+        .resolve(&request(6, 1, dir.path()), &mut store, true)
+        .unwrap_err();
+    assert!(error.contains("tạm thời"), "{error}");
+}
+
+#[test]
 fn rate_limit_and_timeout_are_reported() {
     let dir = tempfile::tempdir().unwrap();
     let limited = MockServer::start(Duration::ZERO, |_, _| {

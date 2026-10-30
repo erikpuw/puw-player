@@ -41,3 +41,8 @@ hound = "3.5"
 lto = "thin"
 strip = true
 
+
+# Optimize dependencies (Slint renderer, image decoding) even in debug builds so
+# `cargo run` animates smoothly; the app crate itself stays fast to rebuild.
+[profile.dev.package."*"]
+opt-level = 2
