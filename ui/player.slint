@@ -69,6 +69,7 @@ export global Icons {
     out property <string> maximize: "M 6 6 H 18 V 18 H 6 Z";
     out property <string> restore: "M 8.5 8.5 H 18.5 V 18.5 H 8.5 Z M 6 16 V 5.5 H 16";
     out property <string> close: "M 6.5 6.5 L 17.5 17.5 M 17.5 6.5 L 6.5 17.5";
+    out property <string> headphones: "M 4.5 15.5 V 12.5 A 7.5 7.5 0 0 1 19.5 12.5 V 15.5 M 4.5 14.5 H 7.5 V 20 H 4.5 Z M 16.5 14.5 H 19.5 V 20 H 16.5 Z";
     out property <string> waveform: "M 3 10 V 14 M 7.5 6 V 18 M 12 3 V 21 M 16.5 6 V 18 M 21 10 V 14";
 }
 
@@ -628,6 +629,8 @@ export component AppWindow inherits Window {
     in-out property <string> now-artist: I18n.t("Chọn một bài hát để bắt đầu", "Pick a song to start");
     in-out property <string> now-source: "";
     in-out property <string> now-quality: "";
+    // "Atmos" / "Binaural" / "Binaural Atmos" when the release is named so; "" otherwise.
+    in-out property <string> now-spatial: "";
     // 0 = no tag (lossy: bitrate is part of now-source), 2 = lossless, 3 = hi-res.
     in-out property <int> now-quality-tier: 0;
     in-out property <string> now-device: "";
@@ -1014,6 +1017,25 @@ export component AppWindow inherits Window {
                                         font-size: 12px;
                                         font-weight: 600;
                                         color: root.now-quality-tier == 3 ? Theme.accent : Theme.text;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                // Spatial release (usually a stereo/binaural render): headphones hint + name.
+                                if root.now-spatial != "": HorizontalLayout {
+                                    spacing: 4px;
+                                    accessible-role: text;
+                                    accessible-label: root.now-spatial + I18n.t(", nên nghe bằng tai nghe", ", best on headphones");
+                                    Glyph {
+                                        glyph-size: 14px;
+                                        weight: 1.6px;
+                                        icon: Icons.headphones;
+                                        tint: Theme.muted;
+                                    }
+                                    Text {
+                                        text: root.now-spatial;
+                                        font-size: 12px;
+                                        font-weight: 600;
+                                        color: Theme.text;
                                         vertical-alignment: center;
                                     }
                                 }

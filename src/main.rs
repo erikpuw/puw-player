@@ -1004,7 +1004,14 @@ fn previous_track(ui: &AppWindow, s: &mut AppState) {
 /// Source line + quality badge from a fresh header read, so tracks imported before the
 /// codec details were stored (e.g. ALAC inside .m4a) still show the right figures.
 fn show_source_quality(ui: &AppWindow, track: &Track) {
-    use puw_player::playback::{Quality, inspect_audio};
+    use puw_player::playback::{Quality, SpatialMix, inspect_audio};
+    let file_name = track
+        .path
+        .file_name()
+        .map(|n| n.to_string_lossy())
+        .unwrap_or_default();
+    let spatial = SpatialMix::detect(&track.title).or_else(|| SpatialMix::detect(&file_name));
+    ui.set_now_spatial(spatial.map(SpatialMix::label).unwrap_or_default().into());
     let Ok(info) = inspect_audio(&track.path) else {
         ui.set_now_source(track.source_label().into());
         ui.set_now_quality("".into());

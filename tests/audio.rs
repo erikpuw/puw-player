@@ -1,4 +1,4 @@
-use puw_player::playback::{Quality, TrackInfo, inspect_audio};
+use puw_player::playback::{Quality, SpatialMix, TrackInfo, inspect_audio};
 
 #[test]
 fn wav_metadata_and_decode_are_real() {
@@ -43,4 +43,22 @@ fn quality_tiers_follow_bit_depth_rate_and_codec() {
         info(false, 0, 44_100, 256).quality(),
         Quality::Lossy { kbps: 256 }
     );
+}
+
+#[test]
+fn spatial_mix_is_read_from_title_or_file_name() {
+    assert_eq!(
+        SpatialMix::detect("Back Home On A Rainy Day (Version Dolby Atmos)"),
+        Some(SpatialMix::Atmos)
+    );
+    assert_eq!(
+        SpatialMix::detect("Maria Two (2024) [Binaural] (Dolby Atmos).flac"),
+        Some(SpatialMix::BinauralAtmos)
+    );
+    assert_eq!(
+        SpatialMix::detect("song [BINAURAL]"),
+        Some(SpatialMix::Binaural)
+    );
+    assert_eq!(SpatialMix::detect("Atmosphere"), None);
+    assert_eq!(SpatialMix::detect("Sau cơn mưa"), None);
 }

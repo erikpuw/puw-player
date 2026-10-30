@@ -32,6 +32,41 @@ pub enum Quality {
     },
 }
 
+/// Spatial release named in the title or file name. Such files are usually a stereo render
+/// (binaural = mixed for headphones); the label only says what the release is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SpatialMix {
+    Atmos,
+    Binaural,
+    BinauralAtmos,
+}
+
+impl SpatialMix {
+    /// Whole words only, so "Atmosphere" is not Atmos.
+    pub fn detect(name: &str) -> Option<Self> {
+        let lower = name.to_lowercase();
+        let has = |word: &str| {
+            lower
+                .split(|c: char| !c.is_alphanumeric())
+                .any(|w| w == word)
+        };
+        match (has("atmos"), has("binaural")) {
+            (true, true) => Some(Self::BinauralAtmos),
+            (true, false) => Some(Self::Atmos),
+            (false, true) => Some(Self::Binaural),
+            (false, false) => None,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Atmos => "Atmos",
+            Self::Binaural => "Binaural",
+            Self::BinauralAtmos => "Binaural Atmos",
+        }
+    }
+}
+
 impl TrackInfo {
     pub fn quality(&self) -> Quality {
         if !self.lossless {
