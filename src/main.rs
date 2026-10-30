@@ -534,6 +534,7 @@ fn poll(ui: &AppWindow, s: &mut AppState) {
 
     if !s.styled && ui.window().is_visible() {
         s.styled = true;
+        ui.set_lists_ready(true);
         apply_border_style(ui, ui.window().is_maximized());
     }
 

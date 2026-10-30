@@ -584,6 +584,9 @@ export component AppWindow inherits Window {
     in-out property <int> dialog-mode: 0;
     // Library row whose "add to playlist" picker is open; -1 = closed.
     in-out property <int> picker-track: -1;
+    // Slint 1.18 ListViews instantiated before the window has its real size loop
+    // ("long callback/instantiation chain detected"). Rust sets this once the window is shown.
+    in-out property <bool> lists-ready: false;
     in-out property <string> dialog-text;
     in-out property <string> dialog-title;
     in-out property <string> status-message;
@@ -1200,7 +1203,7 @@ export component AppWindow inherits Window {
                             y: 0;
                             width: parent.width;
                             height: parent.height;
-                            for row[i] in root.tracks : TrackListItem {
+                            for row[i] in (root.lists-ready ? root.tracks : []) : TrackListItem {
                                 title: row.title;
                                 artist: row.artist;
                                 duration: row.duration;
@@ -1248,7 +1251,7 @@ export component AppWindow inherits Window {
                                 y: 0;
                                 width: parent.width;
                                 height: parent.height;
-                                for play[pi] in root.playlists : PlaylistListItem {
+                                for play[pi] in (root.lists-ready ? root.playlists : []) : PlaylistListItem {
                                     name: play.name;
                                     count: play.count;
                                     cover: play.cover;
@@ -1346,7 +1349,7 @@ export component AppWindow inherits Window {
                                     y: 0;
                                     width: parent.width;
                                     height: parent.height;
-                                    for row[ti] in root.playlist-tracks : TrackListItem {
+                                    for row[ti] in (root.lists-ready ? root.playlist-tracks : []) : TrackListItem {
                                         title: row.title;
                                         artist: row.artist;
                                         duration: row.duration;
