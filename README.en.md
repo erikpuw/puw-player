@@ -55,6 +55,10 @@ cargo clippy --all-targets -- -D warnings
 
 Rust + [Slint](https://slint.dev) for the interface, Rodio/Symphonia for audio, SQLite for data. The icon is drawn by `assets/make_icon.py`.
 
+## License
+
+[MIT](LICENSE)
+
 ## Limitations
 
 - No drag-and-drop into the window yet; add music with the **+** button.

@@ -55,6 +55,10 @@ cargo clippy --all-targets -- -D warnings
 
 Rust + [Slint](https://slint.dev) cho giao diện, Rodio/Symphonia cho âm thanh, SQLite cho dữ liệu. Icon vẽ bằng `assets/make_icon.py`.
 
+## Giấy phép
+
+[MIT](LICENSE)
+
 ## Hạn chế
 
 - Chưa kéo-thả file vào cửa sổ; thêm nhạc qua nút **+**.
