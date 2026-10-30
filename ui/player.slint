@@ -820,13 +820,15 @@ export component AppWindow inherits Window {
     default-font-family: "Segoe UI";
     default-font-size: 14px;
 
-    // content-y is negative once scrolled, so a positive target here never moved the pane.
-    changed active-lyric => {
+    // Keep the sung line in view. content-y is negative once scrolled, so a positive target
+    // here never moved the pane.
+    function follow-lyric() {
         if (root.following && root.active-lyric >= 0) {
             let limit = max(0px, lyric-scroll.content-height - lyric-scroll.height);
             lyric-scroll.content-y = -min(limit, max(0px, root.lyric-anchor - lyric-scroll.height * 0.62));
         }
     }
+    changed active-lyric => { root.follow-lyric(); }
     // Shuffle lands the playing row anywhere in the library, so pull it back into view.
     changed current-track => {
         if (root.current-track >= 0 && songs-list.content-height > 0px) {
@@ -855,12 +857,7 @@ export component AppWindow inherits Window {
     changed picker-track => {
         if (root.picker-track < 0 && root.dialog-mode == 0) { app-focus.focus(); }
     }
-    changed following => {
-        if (root.following && root.active-lyric >= 0) {
-            let limit = max(0px, lyric-scroll.content-height - lyric-scroll.height);
-            lyric-scroll.content-y = -min(limit, max(0px, root.lyric-anchor - lyric-scroll.height * 0.62));
-        }
-    }
+    changed following => { root.follow-lyric(); }
 
     app-focus := FocusScope {
         width: 100%;
@@ -1761,6 +1758,9 @@ export component AppWindow inherits Window {
                                 y: 0;
                                 width: parent.width;
                                 height: parent.height;
+                                // Lyrics opened mid-song set the active line before the rows are
+                                // laid out (height 0); scroll again once the real height is known.
+                                changed content-height => { root.follow-lyric(); }
                                 VerticalLayout {
                                     spacing: 0;
                                     padding-top: 8px;
