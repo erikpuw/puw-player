@@ -21,6 +21,16 @@ Puw Player plays **music that is already on your computer**. No streaming, no ac
 | Interface | System / light / dark theme, Vietnamese / English, respects Windows reduced-motion setting. |
 | Shortcuts | `Space` play/pause · `←` `→` seek 10 s · `↑` `↓` volume · `Esc` close the open panel. |
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Now playing](assets/screenshots/player-dark.png)<br>**Now playing**: cover in the middle, two neighbours on each side taken from the queue, sliding on track change | ![Quality](assets/screenshots/player-quality.png)<br>**Quality**: FLAC 24-bit / 96 kHz earns the **Hi-Res Lossless** label; a release named "Dolby Atmos" gets the headphones label too |
+| ![Lyrics](assets/screenshots/player-lyrics.png)<br>**Lyrics**: the current line lights up, click a line to seek, ±0.5 s offset per song | ![Playlists](assets/screenshots/player-playlist.png)<br>**Playlists**: create, rename, add and remove songs; music files are untouched |
+| ![Settings](assets/screenshots/player-settings.png)<br>**Settings**: theme, language, LRCLIB lyrics, broken-song cleanup | ![Light theme](assets/screenshots/player-light.png)<br>**Light theme** — follows the system / light / dark |
+
+The screenshots use a self-generated demo library (song names, artists, albums, artwork and lyrics are all synthetic data produced for this project) so that no real recording's copyright is involved.
+
 ## Privacy
 
 | Sent over the network | When |

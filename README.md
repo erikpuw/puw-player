@@ -21,6 +21,16 @@ Puw Player phát **nhạc có sẵn trên máy bạn**. Không stream, không t�
 | Giao diện | Theme hệ thống / sáng / tối, tiếng Việt / English, tôn trọng cài đặt giảm chuyển động của Windows. |
 | Phím tắt | `Space` phát/tạm dừng · `←` `→` tua 10 giây · `↑` `↓` âm lượng · `Esc` đóng lớp đang mở. |
 
+## Ảnh chụp
+
+| | |
+|---|---|
+| ![Đang phát](assets/screenshots/player-dark.png)<br>**Đang phát**: bìa ở giữa, hai bìa kề mỗi bên lấy theo hàng đợi, trượt khi chuyển bài | ![Chất lượng](assets/screenshots/player-quality.png)<br>**Chất lượng**: FLAC 24-bit / 96 kHz nên có nhãn **Hi-Res Lossless**; bản ghi "Dolby Atmos" trong tên có thêm nhãn tai nghe |
+| ![Lời bài hát](assets/screenshots/player-lyrics.png)<br>**Lời bài hát**: dòng đang hát sáng lên, bấm một dòng để tua, chỉnh lệch ±0,5 giây | ![Playlist](assets/screenshots/player-playlist.png)<br>**Playlist**: tạo, đổi tên, thêm và bỏ bài; không đụng tới file nhạc |
+| ![Cài đặt](assets/screenshots/player-settings.png)<br>**Cài đặt**: theme, ngôn ngữ, tải lời từ LRCLIB, dọn bài lỗi | ![Theme sáng](assets/screenshots/player-light.png)<br>**Theme sáng** — giao diện theo hệ thống / sáng / tối |
+
+Ảnh chụp dùng thư viện mẫu tự dựng (tên bài, nghệ sĩ, album, ảnh bìa và lời đều là dữ liệu demo do dự án sinh ra) để không dính bản quyền của bài hát thật.
+
 ## Riêng tư
 
 | Gửi ra ngoài | Khi nào |

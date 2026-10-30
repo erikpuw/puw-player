@@ -47,3 +47,11 @@ Plan: docs/superpowers/plans/2026-10-30-puw-player.md
 - Huy hiệu lossless đổi sang dấu sóng tự vẽ (WaveMark: 2 dải sin lệch pha, mảnh sau/đậm trước) + chữ 'Lossless' / 'Hi-Res Lossless', không khung; không sao chép logo Apple (thương hiệu).
 - Nhãn Atmos/Binaural: SpatialMix::detect so khớp nguyên từ 'atmos'/'binaural' trong tên bài, rồi tên file; hiện icon tai nghe + nhãn sau Lossless. Hai file thật trong D:\Music là FLAC stereo 16-bit (bản render), đã kiểm hiển thị bằng DB tạm.
 - Xóa bài khỏi thư viện: Library::remove_track (CASCADE dọn playlist/lời/offset), remove_missing trả id; Queue::remove giữ con trỏ đúng bài; nút thùng rác trên dòng (bài lỗi chỉ còn nút xóa) + hộp thoại xác nhận (dialog-mode 4) + Cài đặt 'Dọn bài lỗi'. Đã kiểm trên bản sao DB: dọn 5 bài lỗi (185→180), xóa '1 Lần' (→179) và file vẫn còn. Sửa nút × của toast: phần tử ngoài layout phải đặt width/height tường minh.
+
+## Ảnh chụp cho README (2026-10-31)
+
+- Yêu cầu: ảnh đưa lên GitHub không được dùng bài hát thật (bìa + lời có bản quyền). Nên không chụp thư viện thật.
+- Thư viện mẫu tự dựng trong `%TEMP%\puw-demo`: 8 bài tên/artists đặt ra, audio sine stereo sinh bằng ffmpeg (FLAC 16/44.1, FLAC 24/96, FLAC 24/48, ALAC→đã đổi thành FLAC vì Rodio không phát được ALAC trong .m4a, AAC 256/320k, MP3 320k), bìa vẽ bằng PIL theo 4 palette album, lời `.lrc` tự viết. DB demo dựng theo đúng schema `library.rs`.
+- Cách chạy cô lập: `data_dir()` đọc `%APPDATA%` (src/main.rs:1459) → launch exe với `APPDATA=%TEMP%\puw-demo\appdata` nên không đụng thư viện thật.
+- 6 ảnh 1200×680 trong `assets/screenshots/`: player-dark, player-quality (Hi-Res Lossless + Atmos), player-lyrics, player-playlist, player-settings, player-light. README.md mục "Ảnh chụp" / README.en.md mục "Screenshots" theo kiểu bảng của puw-notch, kèm ghi chú rõ là dữ liệu demo.
+- Chưa kiểm chứng: app đang chạy bị thoát giữa chừng hai lần khi đang thao tác automation (không có crash dump WER, không có lời gọi thoát nào trong src/main.rs) — nghi do người dùng đóng cửa sổ, cần theo dõi thêm.
