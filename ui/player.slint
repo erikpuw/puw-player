@@ -605,7 +605,7 @@ export component AppWindow inherits Window {
     in-out property <string> now-artist: I18n.t("Chọn một bài hát để bắt đầu", "Pick a song to start");
     in-out property <string> now-source: "";
     in-out property <string> now-quality: "";
-    // 0 = none, 1 = lossy, 2 = lossless, 3 = hi-res.
+    // 0 = no tag (lossy: bitrate is part of now-source), 2 = lossless, 3 = hi-res.
     in-out property <int> now-quality-tier: 0;
     in-out property <string> now-device: "";
     in-out property <image> cover;
@@ -976,29 +976,37 @@ export component AppWindow inherits Window {
                                     vertical-alignment: center;
                                     overflow: elide;
                                 }
-                                // Quality badge: 3 = Hi-Res (filled), 2 = Lossless (accent outline), 1 = lossy kbps.
-                                if root.now-quality-tier > 0: Rectangle {
-                                    min-width: badge-text.preferred-width + 14px;
-                                    max-width: badge-text.preferred-width + 14px;
+                                // Lossless tag (Apple Music style): small caps label + waveform mark.
+                                // 3 = Hi-Res (accent tint), 2 = Lossless (neutral). Lossy bitrate lives in the text line.
+                                if root.now-quality-tier >= 2: Rectangle {
+                                    min-width: badge-row.preferred-width;
+                                    max-width: badge-row.preferred-width;
+                                    accessible-role: text;
+                                    accessible-label: root.now-quality;
                                     Rectangle {
-                                        y: (parent.height - 18px) / 2;
-                                        height: 18px;
-                                        border-radius: 9px;
-                                        border-width: root.now-quality-tier == 3 ? 0px : 1px;
-                                        border-color: root.now-quality-tier == 2 ? Theme.accent : Theme.line;
-                                        background: root.now-quality-tier == 3 ? Theme.accent : transparent;
-                                        accessible-role: text;
-                                        accessible-label: root.now-quality;
-                                        badge-text := Text {
-                                            width: parent.width;
-                                            height: parent.height;
-                                            text: root.now-quality;
-                                            font-size: 11px;
-                                            font-weight: root.now-quality-tier == 3 ? 700 : 600;
-                                            color: root.now-quality-tier == 3 ? Theme.on-accent
-                                                : (root.now-quality-tier == 2 ? Theme.accent : Theme.muted);
-                                            horizontal-alignment: center;
-                                            vertical-alignment: center;
+                                        y: (parent.height - 17px) / 2;
+                                        height: 17px;
+                                        border-radius: 4px;
+                                        background: root.now-quality-tier == 3 ? Theme.accent-soft : Theme.hover;
+                                        badge-row := HorizontalLayout {
+                                            padding-left: 6px;
+                                            padding-right: 7px;
+                                            spacing: 4px;
+                                            alignment: center;
+                                            Glyph {
+                                                glyph-size: 11px;
+                                                weight: 1.6px;
+                                                icon: Icons.waveform;
+                                                tint: root.now-quality-tier == 3 ? Theme.accent : Theme.muted;
+                                            }
+                                            Text {
+                                                text: root.now-quality;
+                                                font-size: 10px;
+                                                font-weight: 600;
+                                                letter-spacing: 0.6px;
+                                                color: root.now-quality-tier == 3 ? Theme.accent : Theme.text;
+                                                vertical-alignment: center;
+                                            }
                                         }
                                     }
                                 }

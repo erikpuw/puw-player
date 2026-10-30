@@ -1018,13 +1018,18 @@ fn show_source_quality(ui: &AppWindow, track: &Track) {
         lossless: info.lossless,
         ..track.clone()
     };
-    ui.set_now_source(fresh.source_label().into());
+    let mut source = fresh.source_label();
     let (label, tier) = match info.quality() {
-        Quality::HiRes => ("Hi-Res".to_string(), 3),
-        Quality::Lossless => ("Lossless".to_string(), 2),
-        Quality::Lossy { kbps } if kbps > 0 => (format!("{kbps} kbps"), 1),
-        Quality::Lossy { .. } => (String::new(), 0),
+        Quality::HiRes => ("HI-RES", 3),
+        Quality::Lossless => ("LOSSLESS", 2),
+        Quality::Lossy { kbps } => {
+            if kbps > 0 {
+                source.push_str(&format!(" · {kbps} kbps"));
+            }
+            ("", 0)
+        }
     };
+    ui.set_now_source(source.into());
     ui.set_now_quality(label.into());
     ui.set_now_quality_tier(tier);
 }
