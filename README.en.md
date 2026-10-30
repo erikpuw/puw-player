@@ -14,7 +14,7 @@ Puw Player plays **music that is already on your computer**. No streaming, no ac
 | Playback | Play/pause, stop, previous/next, ±10 s seek, draggable timeline, volume. |
 | Queue | Shuffle without repeats, Previous returns to the song you just heard. Repeat: off / all / one. |
 | Playlists | Create, rename, delete. Add songs from the Songs tab, remove songs from a playlist. Deleting a playlist never deletes music files. |
-| Quality | A badge after the source details: **Hi-Res** (lossless 24-bit or above 48 kHz), **Lossless** (FLAC, ALAC, WAV…), or the bitrate for compressed files (e.g. 320 kbps). |
+| Quality | A badge after the source details: **Hi-Res Lossless** (lossless 24-bit or above 48 kHz), **Lossless** (FLAC, ALAC, WAV…), or the bitrate for compressed files (e.g. 320 kbps). |
 | Cover flow | Current cover in the middle, two covers on each side from the queue, sliding when the track changes. |
 | Lyrics | A `.lrc` file next to the song first, then saved lyrics, then LRCLIB if you turn it on. Synced to playback, click a line to seek, per-song ±0.5 s offset. Downloaded lyrics work offline. |
 | Windows | Shows up in the Windows media flyout and answers keyboard media keys. "Now playing" readers such as PUW Notch can see it too. |

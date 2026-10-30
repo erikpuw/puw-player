@@ -249,6 +249,29 @@ component PlayPauseMorph inherits Path {
     Close { }
 }
 
+// Lossless mark: two phase-shifted sine strands, thin behind bold (our own drawing).
+component WaveMark inherits Rectangle {
+    in property <length> mark-size: 16px;
+    in property <color> tint: Theme.text;
+    min-width: mark-size * 34 / 20;
+    max-width: mark-size * 34 / 20;
+    min-height: mark-size;
+    horizontal-stretch: 0;
+    // One wave period per strand: up from the lower left, crest, trough, rising tail.
+    for strand[k] in [{ x: 2, w: 0.055 }, { x: 9, w: 0.12 }] : Path {
+        y: (parent.height - root.mark-size) / 2;
+        width: parent.width;
+        height: root.mark-size;
+        viewbox-width: 34;
+        viewbox-height: 20;
+        commands: "M \{strand.x} 15 C \{strand.x + 3.5} 1.5, \{strand.x + 7.5} 1.5, \{strand.x + 11} 10 S \{strand.x + 18.5} 18.5, \{strand.x + 22} 5";
+        fill: transparent;
+        stroke: root.tint;
+        stroke-width: root.mark-size * strand.w;
+        stroke-line-cap: round;
+    }
+}
+
 // Full-width hairline that fades out at both ends.
 component HDivider inherits Rectangle {
     height: 1px;
@@ -976,38 +999,22 @@ export component AppWindow inherits Window {
                                     vertical-alignment: center;
                                     overflow: elide;
                                 }
-                                // Lossless tag (Apple Music style): small caps label + waveform mark.
-                                // 3 = Hi-Res (accent tint), 2 = Lossless (neutral). Lossy bitrate lives in the text line.
-                                if root.now-quality-tier >= 2: Rectangle {
-                                    min-width: badge-row.preferred-width;
-                                    max-width: badge-row.preferred-width;
+                                // Lossless mark + label, no box. 3 = Hi-Res Lossless (accent), 2 = Lossless.
+                                // Lossy bitrate lives in the text line.
+                                if root.now-quality-tier >= 2: HorizontalLayout {
+                                    spacing: 5px;
                                     accessible-role: text;
                                     accessible-label: root.now-quality;
-                                    Rectangle {
-                                        y: (parent.height - 17px) / 2;
-                                        height: 17px;
-                                        border-radius: 4px;
-                                        background: root.now-quality-tier == 3 ? Theme.accent-soft : Theme.hover;
-                                        badge-row := HorizontalLayout {
-                                            padding-left: 6px;
-                                            padding-right: 7px;
-                                            spacing: 4px;
-                                            alignment: center;
-                                            Glyph {
-                                                glyph-size: 11px;
-                                                weight: 1.6px;
-                                                icon: Icons.waveform;
-                                                tint: root.now-quality-tier == 3 ? Theme.accent : Theme.muted;
-                                            }
-                                            Text {
-                                                text: root.now-quality;
-                                                font-size: 10px;
-                                                font-weight: 600;
-                                                letter-spacing: 0.6px;
-                                                color: root.now-quality-tier == 3 ? Theme.accent : Theme.text;
-                                                vertical-alignment: center;
-                                            }
-                                        }
+                                    WaveMark {
+                                        mark-size: 18px;
+                                        tint: root.now-quality-tier == 3 ? Theme.accent : Theme.text;
+                                    }
+                                    Text {
+                                        text: root.now-quality;
+                                        font-size: 12px;
+                                        font-weight: 600;
+                                        color: root.now-quality-tier == 3 ? Theme.accent : Theme.text;
+                                        vertical-alignment: center;
                                     }
                                 }
                             }

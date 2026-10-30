@@ -44,3 +44,4 @@ Plan: docs/superpowers/plans/2026-10-30-puw-player.md
 - README.md / README.en.md viết lại ngắn gọn dạng bảng cho GitHub.
 - Huy hiệu chất lượng sau kHz: Hi-Res (lossless ≥24-bit hoặc >48 kHz, nền xanh), Lossless (viền xanh), lossy hiện kbps; đọc lại header lúc phát nên bài nhập trước vẫn đúng. M4A tách AAC/ALAC theo bit depth, hiện tên codec thay vì 'M4A'. Kiểm bằng ảnh: AAC 323 kbps, FLAC 16-bit Lossless, FLAC 24-bit/48 kHz Hi-Res.
 - Huy hiệu làm lại theo kiểu Apple Music: thẻ chữ in hoa nhỏ bo 4 px + icon sóng âm (HI-RES nền accent-soft, LOSSLESS nền xám nhạt); lossy không còn khung, kbps nối vào dòng thông số. Không thêm Dolby Atmos: Rodio/Symphonia không giải mã E-AC-3 JOC/AC-4/TrueHD.
+- Huy hiệu lossless đổi sang dấu sóng tự vẽ (WaveMark: 2 dải sin lệch pha, mảnh sau/đậm trước) + chữ 'Lossless' / 'Hi-Res Lossless', không khung; không sao chép logo Apple (thương hiệu).

@@ -1020,8 +1020,8 @@ fn show_source_quality(ui: &AppWindow, track: &Track) {
     };
     let mut source = fresh.source_label();
     let (label, tier) = match info.quality() {
-        Quality::HiRes => ("HI-RES", 3),
-        Quality::Lossless => ("LOSSLESS", 2),
+        Quality::HiRes => ("Hi-Res Lossless", 3),
+        Quality::Lossless => ("Lossless", 2),
         Quality::Lossy { kbps } => {
             if kbps > 0 {
                 source.push_str(&format!(" · {kbps} kbps"));

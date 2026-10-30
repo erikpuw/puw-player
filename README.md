@@ -14,7 +14,7 @@ Puw Player phát **nhạc có sẵn trên máy bạn**. Không stream, không t�
 | Phát nhạc | Phát/tạm dừng, dừng, bài trước/sau, tua ±10 giây, kéo thanh thời gian, âm lượng. |
 | Hàng đợi | Shuffle không lặp bài, Previous quay đúng bài vừa nghe. Lặp: tắt / tất cả / một bài. |
 | Playlist | Tạo, đổi tên, xóa. Thêm bài từ tab Bài hát, bỏ bài khỏi playlist. Xóa playlist không xóa file nhạc. |
-| Chất lượng | Sau thông số nguồn có huy hiệu: **Hi-Res** (lossless 24-bit hoặc trên 48 kHz), **Lossless** (FLAC, ALAC, WAV…), hoặc bitrate cho file nén (vd. 320 kbps). |
+| Chất lượng | Sau thông số nguồn có huy hiệu: **Hi-Res Lossless** (lossless 24-bit hoặc trên 48 kHz), **Lossless** (FLAC, ALAC, WAV…), hoặc bitrate cho file nén (vd. 320 kbps). |
 | Cover flow | Bìa đang phát ở giữa, 2 bìa mỗi bên theo hàng đợi, trượt khi chuyển bài. |
 | Lời bài hát | Ưu tiên file `.lrc` cạnh bài hát, rồi lời đã lưu, rồi LRCLIB nếu bạn bật. Lời chạy theo nhạc, bấm một dòng để tua, chỉnh lệch ±0,5 giây cho từng bài. Lời đã tải dùng được khi offline. |
 | Windows | Hiện trong bảng media của Windows và nhận phím media trên bàn phím. Các app đọc "now playing" như PUW Notch cũng thấy được. |
