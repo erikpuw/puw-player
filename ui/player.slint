@@ -291,13 +291,7 @@ component WaveMark inherits Rectangle {
     }
 }
 
-// Full-width hairline that fades out at both ends.
-component HDivider inherits Rectangle {
-    height: 1px;
-    background: @linear-gradient(90deg, transparent 0%, Theme.line 12%, Theme.line 88%, transparent 100%);
-}
-
-//Thin vertical divider that stays centered inside a row layout.
+// Thin vertical divider that stays centered inside a row layout.
 component VDivider inherits Rectangle {
     in property <length> line-height: 18px;
     min-width: 1px;
@@ -712,6 +706,7 @@ export component AppWindow inherits Window {
     // 0 = no tag (lossy: bitrate is part of now-source), 2 = lossless, 3 = hi-res.
     in-out property <int> now-quality-tier: 0;
     in-out property <string> now-device: "";
+    in-out property <color> ambient-color: #c8e38c33;
     in-out property <image> cover;
     in-out property <image> cover-prev;
     in-out property <image> cover-next;
@@ -1039,13 +1034,25 @@ export component AppWindow inherits Window {
                     height: parent.height;
                     background: transparent;
 
+                    // Cover Flow Stage + Ambient Mesh Glow
                     Rectangle {
                         x: 0;
                         y: 0;
                         width: parent.width;
-                        height: max(220px, parent.height - 322px);
+                        height: max(240px, parent.height - 266px);
                         background: transparent;
                         clip: true;
+
+                        // Ambient mesh glow extracted from the current track's album cover
+                        Rectangle {
+                            x: (parent.width - self.width) / 2;
+                            y: (parent.height - self.height) / 2;
+                            width: min(parent.width, 460px);
+                            height: min(parent.height, 340px);
+                            border-radius: self.height / 2;
+                            background: @radial-gradient(circle, root.ambient-color 0%, root.ambient-color.transparentize(0.55) 45%, root.ambient-color.transparentize(1.0) 75%);
+                            animate background { duration: Motion.slow; easing: ease-out; }
+                        }
 
                         // Five slots -2..2 placed by continuous position p = slot + flow-shift.
                         // Changing track animates flow-shift from ±1 to 0, so the whole strip slides one slot.
@@ -1082,19 +1089,20 @@ export component AppWindow inherits Window {
                         }
                     }
 
+                    // Track Info + Metadata Pill Badge
                     Rectangle {
                         x: 0;
-                        y: parent.height - 322px;
+                        y: parent.height - 262px;
                         width: parent.width;
-                        height: 104px;
+                        height: 96px;
                         background: transparent;
                         VerticalLayout {
                             alignment: center;
-                            spacing: 2px;
+                            spacing: 4px;
                             Text {
                                 text: root.now-title;
                                 color: Theme.text;
-                                font-size: 26px;
+                                font-size: 25px;
                                 font-weight: 700;
                                 horizontal-alignment: center;
                                 overflow: elide;
@@ -1108,97 +1116,142 @@ export component AppWindow inherits Window {
                             }
                             HorizontalLayout {
                                 alignment: center;
-                                spacing: 8px;
-                                Text {
-                                    text: root.now-source;
-                                    color: Theme.muted;
-                                    font-size: 13px;
-                                    vertical-alignment: center;
-                                    overflow: elide;
-                                }
-                                // Lossless mark + label, no box. 3 = Hi-Res Lossless (accent), 2 = Lossless.
-                                // Lossy bitrate lives in the text line.
-                                if root.now-quality-tier >= 2: HorizontalLayout {
-                                    spacing: 5px;
-                                    accessible-role: text;
-                                    accessible-label: root.now-quality;
-                                    WaveMark {
-                                        mark-size: 18px;
-                                        tint: root.now-quality-tier == 3 ? Theme.accent : Theme.text;
-                                    }
-                                    Text {
-                                        text: root.now-quality;
-                                        font-size: 12px;
-                                        font-weight: 600;
-                                        color: root.now-quality-tier == 3 ? Theme.accent : Theme.text;
-                                        vertical-alignment: center;
-                                    }
-                                }
-                                // Spatial release (usually a stereo/binaural render): headphones hint + name.
-                                if root.now-spatial != "": HorizontalLayout {
-                                    spacing: 4px;
-                                    accessible-role: text;
-                                    accessible-label: root.now-spatial + I18n.t(", nên nghe bằng tai nghe", ", best on headphones");
-                                    Glyph {
-                                        glyph-size: 14px;
-                                        weight: 1.6px;
-                                        icon: Icons.headphones;
-                                        tint: Theme.muted;
-                                    }
-                                    Text {
-                                        text: root.now-spatial;
-                                        font-size: 12px;
-                                        font-weight: 600;
-                                        color: Theme.text;
-                                        vertical-alignment: center;
+                                if root.now-source != "" || root.now-quality-tier >= 2 || root.now-spatial != "": Rectangle {
+                                    height: 26px;
+                                    border-radius: 13px;
+                                    background: Theme.surface;
+                                    border-width: 1px;
+                                    border-color: Theme.line;
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        spacing: 8px;
+                                        alignment: center;
+                                        if root.now-source != "": Text {
+                                            text: root.now-source;
+                                            color: Theme.muted;
+                                            font-size: 12px;
+                                            vertical-alignment: center;
+                                            overflow: elide;
+                                        }
+                                        // Lossless mark + label. 3 = Hi-Res Lossless (accent), 2 = Lossless.
+                                        if root.now-quality-tier >= 2: HorizontalLayout {
+                                            spacing: 5px;
+                                            accessible-role: text;
+                                            accessible-label: root.now-quality;
+                                            WaveMark {
+                                                mark-size: 16px;
+                                                tint: root.now-quality-tier == 3 ? Theme.accent : Theme.text;
+                                            }
+                                            Text {
+                                                text: root.now-quality;
+                                                font-size: 12px;
+                                                font-weight: 600;
+                                                color: root.now-quality-tier == 3 ? Theme.accent : Theme.text;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+                                        // Spatial release (usually a stereo/binaural render): headphones hint + name.
+                                        if root.now-spatial != "": HorizontalLayout {
+                                            spacing: 4px;
+                                            accessible-role: text;
+                                            accessible-label: root.now-spatial + I18n.t(", nên nghe bằng tai nghe", ", best on headphones");
+                                            Glyph {
+                                                glyph-size: 14px;
+                                                weight: 1.6px;
+                                                icon: Icons.headphones;
+                                                tint: Theme.muted;
+                                            }
+                                            Text {
+                                                text: root.now-spatial;
+                                                font-size: 12px;
+                                                font-weight: 600;
+                                                color: Theme.text;
+                                                vertical-alignment: center;
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
 
-                    HDivider { x: 0; y: parent.height - 212px; width: parent.width; }
-
-                    HorizontalLayout {
+                    // Floating Pill Dock: Timeline + Volume merged into one sleek pill bar
+                    Rectangle {
                         x: 0;
-                        y: parent.height - 204px;
+                        y: parent.height - 156px;
                         width: parent.width;
-                        height: 34px;
-                        spacing: 18px;
-                        Text {
-                            text: root.position-label;
-                            color: Theme.muted;
-                            font-size: 13px;
-                            vertical-alignment: center;
-                        }
-                        Timeline {
-                            horizontal-stretch: 1;
-                            position: root.position;
-                            duration: root.duration;
-                            enabled: root.has-track;
-                            seek-to(seconds) => { root.seek-to(seconds); }
-                        }
-                        Text {
-                            text: root.duration-label;
-                            color: Theme.muted;
-                            font-size: 13px;
-                            vertical-alignment: center;
+                        height: 44px;
+                        border-radius: 22px;
+                        background: Theme.surface;
+                        border-width: 1px;
+                        border-color: Theme.line;
+                        HorizontalLayout {
+                            width: parent.width;
+                            height: parent.height;
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            spacing: 12px;
+                            Text {
+                                text: root.position-label;
+                                color: Theme.muted;
+                                font-size: 12px;
+                                min-width: 36px;
+                                vertical-alignment: center;
+                            }
+                            Timeline {
+                                horizontal-stretch: 1;
+                                position: root.position;
+                                duration: root.duration;
+                                enabled: root.has-track;
+                                seek-to(seconds) => { root.seek-to(seconds); }
+                            }
+                            Text {
+                                text: root.duration-label;
+                                color: Theme.muted;
+                                font-size: 12px;
+                                min-width: 36px;
+                                horizontal-alignment: right;
+                                vertical-alignment: center;
+                            }
+                            VDivider { line-height: 18px; }
+                            Glyph {
+                                glyph-size: 18px;
+                                weight: 1.8px;
+                                icon: Icons.volume;
+                                tint: Theme.muted;
+                            }
+                            VolumeSlider {
+                                min-width: 84px;
+                                max-width: 108px;
+                                volume: root.volume;
+                                set-volume(value) => { root.set-volume(value); }
+                            }
+                            Text {
+                                text: root.volume-label;
+                                color: Theme.muted;
+                                font-size: 12px;
+                                min-width: 34px;
+                                horizontal-alignment: right;
+                                vertical-alignment: center;
+                            }
                         }
                     }
 
+                    // Compact Transport Row
                     HorizontalLayout {
                         x: 0;
-                        y: parent.height - 158px;
+                        y: parent.height - 102px;
                         width: parent.width;
-                        height: 76px;
+                        height: 70px;
                         alignment: center;
-                        spacing: 18px;
+                        spacing: 12px;
 
                         IconButton {
                             icon: Icons.shuffle;
                             label: I18n.t("Phát ngẫu nhiên", "Shuffle");
-                            size: 46px;
-                            icon-size: 26px;
+                            size: 42px;
+                            icon-size: 24px;
                             weight: 2.2px;
                             plate: true;
                             tint: Theme.text;
@@ -1209,8 +1262,8 @@ export component AppWindow inherits Window {
                             icon: Icons.skip-back;
                             badge: "10";
                             label: I18n.t("Lùi 10 giây", "Back 10 seconds");
-                            size: 46px;
-                            icon-size: 32px;
+                            size: 42px;
+                            icon-size: 30px;
                             weight: 2px;
                             plate: true;
                             enabled: root.has-track;
@@ -1220,8 +1273,8 @@ export component AppWindow inherits Window {
                         IconButton {
                             icon: Icons.previous;
                             label: I18n.t("Bài trước", "Previous");
-                            size: 52px;
-                            icon-size: 24px;
+                            size: 48px;
+                            icon-size: 22px;
                             filled-icon: true;
                             plate: true;
                             enabled: root.has-track;
@@ -1229,10 +1282,10 @@ export component AppWindow inherits Window {
                             clicked => { root.previous(); }
                         }
                         Rectangle {
-                            min-width: 70px;
-                            max-width: 70px;
-                            min-height: 70px;
-                            max-height: 70px;
+                            min-width: 64px;
+                            max-width: 64px;
+                            min-height: 64px;
+                            max-height: 64px;
                             opacity: root.has-track ? 1 : 0.45;
                             accessible-role: button;
                             accessible-label: root.playing ? I18n.t("Tạm dừng", "Pause") : I18n.t("Phát", "Play");
@@ -1258,10 +1311,10 @@ export component AppWindow inherits Window {
                                 background: play-touch.has-hover && root.has-track ? Theme.accent.brighter(0.1) : Theme.accent;
                                 animate background { duration: Motion.fast; }
                                 PlayPauseMorph {
-                                    x: (parent.width - 30px) / 2;
-                                    y: (parent.height - 30px) / 2;
-                                    width: 30px;
-                                    height: 30px;
+                                    x: (parent.width - 28px) / 2;
+                                    y: (parent.height - 28px) / 2;
+                                    width: 28px;
+                                    height: 28px;
                                     fill: Theme.on-accent;
                                     m: root.playing ? 1 : 0;
                                     animate m { duration: Motion.slow; easing: ease-in-out; }
@@ -1276,8 +1329,8 @@ export component AppWindow inherits Window {
                         IconButton {
                             icon: Icons.next;
                             label: I18n.t("Bài tiếp theo", "Next");
-                            size: 52px;
-                            icon-size: 24px;
+                            size: 48px;
+                            icon-size: 22px;
                             filled-icon: true;
                             plate: true;
                             enabled: root.has-track;
@@ -1288,8 +1341,8 @@ export component AppWindow inherits Window {
                             icon: Icons.skip-forward;
                             badge: "10";
                             label: I18n.t("Tiến 10 giây", "Forward 10 seconds");
-                            size: 46px;
-                            icon-size: 32px;
+                            size: 42px;
+                            icon-size: 30px;
                             weight: 2px;
                             plate: true;
                             enabled: root.has-track;
@@ -1300,8 +1353,8 @@ export component AppWindow inherits Window {
                         IconButton {
                             icon: Icons.repeat;
                             label: root.repeat-mode == 0 ? I18n.t("Lặp: tắt", "Repeat: off") : (root.repeat-mode == 1 ? I18n.t("Lặp: tất cả", "Repeat: all") : I18n.t("Lặp: một bài", "Repeat: one track"));
-                            size: 46px;
-                            icon-size: 28px;
+                            size: 42px;
+                            icon-size: 26px;
                             weight: 2.2px;
                             plate: true;
                             tint: Theme.text;
@@ -1310,56 +1363,30 @@ export component AppWindow inherits Window {
                             active: root.repeat-mode > 0;
                             clicked => { root.cycle-repeat(); }
                         }
-                    }
-
-                    HDivider { x: 0; y: parent.height - 70px; width: parent.width; }
-
-                    HorizontalLayout {
-                        x: 0;
-                        y: parent.height - 60px;
-                        width: parent.width;
-                        height: 52px;
-                        spacing: 14px;
                         IconButton {
                             icon: Icons.stop;
                             label: I18n.t("Dừng", "Stop");
                             size: 42px;
-                            icon-size: 18px;
+                            icon-size: 16px;
                             filled-icon: true;
                             plate: true;
                             enabled: root.has-track;
                             tint: Theme.text;
                             clicked => { root.stop(); }
                         }
-                        VDivider { }
-                        Glyph {
-                            glyph-size: 24px;
-                            weight: 2px;
-                            icon: Icons.volume;
-                            tint: Theme.text;
-                        }
-                        VolumeSlider {
-                            min-width: 200px;
-                            max-width: 260px;
-                            volume: root.volume;
-                            set-volume(value) => { root.set-volume(value); }
-                        }
-                        Text {
-                            text: root.volume-label;
-                            color: Theme.muted;
-                            font-size: 13px;
-                            min-width: 44px;
-                            vertical-alignment: center;
-                        }
-                        Rectangle { horizontal-stretch: 1; }
-                        Text {
-                            text: root.now-device;
-                            color: Theme.muted;
-                            font-size: 12px;
-                            vertical-alignment: center;
-                            horizontal-alignment: right;
-                            overflow: elide;
-                        }
+                    }
+
+                    Text {
+                        x: 0;
+                        y: parent.height - 24px;
+                        width: parent.width;
+                        height: 20px;
+                        text: root.now-device;
+                        color: Theme.muted;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                        overflow: elide;
                     }
                 }
 
@@ -1749,22 +1776,24 @@ export component AppWindow inherits Window {
                                     padding-top: 8px;
                                     padding-bottom: 24px;
                                     for line[li] in root.lyrics : Rectangle {
+                                        property <int> dist: root.active-lyric < 0 ? 0 : abs(li - root.active-lyric);
                                         min-height: line.text == "" ? 14px : 34px;
                                         max-height: line.text == "" ? 14px : 34px;
-                                        background: lyric-touch.has-hover && line.timed ? Theme.hover : transparent;
+                                        background: lyric-touch.has-hover && line.timed ? Theme.hover : (line.active ? Theme.accent-soft.transparentize(0.45) : transparent);
                                         border-radius: 6px;
                                         Text {
-                                            x: 6px;
-                                            width: parent.width - 12px;
+                                            x: 8px;
+                                            width: parent.width - 16px;
                                             height: parent.height;
                                             text: line.text;
-                                            color: line.active ? Theme.accent : Theme.muted;
-                                            font-size: line.active ? 16px : 14px;
-                                            font-weight: line.active ? 600 : 400;
+                                            color: line.active ? Theme.accent : (parent.dist == 1 ? Theme.text : Theme.muted);
+                                            opacity: line.active ? 1.0 : (root.active-lyric < 0 ? 0.85 : (parent.dist == 1 ? 0.78 : (parent.dist == 2 ? 0.52 : 0.32)));
+                                            font-size: line.active ? 18px : 14px;
+                                            font-weight: line.active ? 700 : 400;
                                             vertical-alignment: center;
                                             wrap: word-wrap;
                                             overflow: elide;
-                                            animate color { duration: Motion.fast; }
+                                            animate color, opacity { duration: Motion.fast; easing: ease-out; }
                                         }
                                         lyric-touch := TouchArea {
                                             mouse-cursor: line.timed ? MouseCursor.pointer : MouseCursor.default;

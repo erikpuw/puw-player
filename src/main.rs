@@ -35,6 +35,7 @@ struct CoverResult {
     width: u32,
     height: u32,
     rgba: Vec<u8>,
+    ambient: Option<(u8, u8, u8)>,
 }
 
 struct LyricsResult {
@@ -69,6 +70,7 @@ struct AppState {
     lyric_offset_ms: i64,
     active_lyric: i32,
     covers: HashMap<(PathBuf, u32), Option<slint::Image>>,
+    cover_ambients: HashMap<PathBuf, (u8, u8, u8)>,
     pending_covers: HashSet<(PathBuf, u32)>,
     // Separate workers so the now-playing cover never waits behind library thumbnails.
     thumb_tx: Sender<CoverJob>,
@@ -133,6 +135,7 @@ fn main() -> Result<(), slint::PlatformError> {
         lyric_offset_ms: 0,
         active_lyric: -1,
         covers: HashMap::new(),
+        cover_ambients: HashMap::new(),
         pending_covers: HashSet::new(),
         thumb_tx,
         cover_tx,
@@ -488,6 +491,11 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
         let settings = s.settings.clone();
         let _ = s.library.save_settings(&settings);
         apply_theme(&ui, s.settings.theme);
+        let rgb = s
+            .current_id
+            .and_then(|id| s.library.track(id).ok().flatten())
+            .and_then(|t| s.cover_ambients.get(&t.path).copied());
+        apply_ambient(&ui, rgb);
     });
     let weak = handle.clone();
     let state_rc = state.clone();
@@ -608,6 +616,11 @@ fn poll(ui: &AppWindow, s: &mut AppState) {
     if s.settings.theme == AppTheme::System && s.theme_poll.elapsed() > Duration::from_secs(2) {
         s.theme_poll = Instant::now();
         apply_theme(ui, AppTheme::System);
+        let rgb = s
+            .current_id
+            .and_then(|id| s.library.track(id).ok().flatten())
+            .and_then(|t| s.cover_ambients.get(&t.path).copied());
+        apply_ambient(ui, rgb);
     }
 
     if let Some(deadline) = s.status_until
@@ -671,6 +684,9 @@ fn drain_covers(ui: &AppWindow, s: &mut AppState) {
         };
         s.covers
             .insert((result.path.clone(), result.max), image.clone());
+        if let Some(rgb) = result.ambient {
+            s.cover_ambients.insert(result.path.clone(), rgb);
+        }
         if let Some(image) = image {
             for (index, track) in s.library_tracks.iter().enumerate() {
                 if track.path == result.path && result.max == THUMB {
@@ -696,6 +712,7 @@ fn drain_covers(ui: &AppWindow, s: &mut AppState) {
                 match s.library.track(id).ok().flatten() {
                     Some(track) if track.path == result.path => {
                         ui.set_cover(image.clone());
+                        apply_ambient(ui, s.cover_ambients.get(&result.path).copied());
                         s.media.set_cover(id, &image);
                     }
                     _ => {}
@@ -871,12 +888,18 @@ fn spawn_cover_worker(results: Sender<CoverResult>) -> Sender<CoverJob> {
         while let Ok(job) = jobs.recv() {
             let (width, height, rgba) =
                 cover_bytes(&job.path, job.max).unwrap_or((0, 0, Vec::new()));
+            let ambient = if job.max == COVER && !rgba.is_empty() {
+                artwork::dominant_rgb(&rgba)
+            } else {
+                None
+            };
             let _ = results.send(CoverResult {
                 path: job.path,
                 max: job.max,
                 width,
                 height,
                 rgba,
+                ambient,
             });
         }
     });
@@ -952,6 +975,7 @@ fn load_current(ui: &AppWindow, s: &mut AppState) {
     let cover = ensure_cover(s, &track.path, COVER);
     s.media.set_track(&track, cover.as_ref());
     ui.set_cover(cover.unwrap_or_default());
+    apply_ambient(ui, s.cover_ambients.get(&track.path).copied());
     set_neighbor_covers(ui, s);
     ui.invoke_start_flow(flow_dir);
 
@@ -1407,6 +1431,17 @@ fn apply_theme(ui: &AppWindow, theme: AppTheme) {
     let motion_global = ui.global::<Motion>();
     motion_global.set_fast(motion.0 as i64);
     motion_global.set_slow(motion.1 as i64);
+}
+
+fn apply_ambient(ui: &AppWindow, rgb: Option<(u8, u8, u8)>) {
+    let dark = ui.global::<Theme>().get_dark();
+    let (r, g, b) = rgb.unwrap_or(if dark {
+        (0xc8, 0xe3, 0x8c)
+    } else {
+        (0x4c, 0x68, 0x14)
+    });
+    let alpha = if dark { 0x36 } else { 0x1e };
+    ui.set_ambient_color(color_argb((alpha, r, g, b)));
 }
 
 struct Palette {
