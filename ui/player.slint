@@ -1,0 +1,1728 @@
+// Puw Player — approved layout, one frameless window.
+
+import { ListView, ScrollView } from "std-widgets.slint";
+
+export struct TrackRow {
+    title: string,
+    artist: string,
+    duration: string,
+    cover: image,
+    missing: bool,
+}
+
+export struct PlaylistRow {
+    name: string,
+    count: string,
+    cover: image,
+}
+
+export struct LyricRow {
+    text: string,
+    active: bool,
+    timed: bool,
+    seconds: int,
+}
+
+export global Theme {
+    in-out property <color> bg: #17191a;
+    in-out property <color> surface: #1e2223;
+    in-out property <color> text: #e8ebe8;
+    in-out property <color> muted: #97a09c;
+    in-out property <color> accent: #c8e38c;
+    in-out property <color> accent-soft: #c8e38c2a;
+    in-out property <color> hover: #ffffff14;
+    in-out property <color> line: #ffffff1f;
+    in-out property <color> on-accent: #17191a;
+    in-out property <bool> dark: true;
+}
+
+export global Motion {
+    in-out property <duration> fast: 140ms;
+    in-out property <duration> slow: 240ms;
+}
+
+export global Icons {
+    out property <string> play: "M 8 5.5 L 19 12 L 8 18.5 Z";
+    out property <string> pause: "M 8.5 6 V 18 M 15.5 6 V 18";
+    out property <string> previous: "M 7 6 V 18 M 18 6.5 L 9.5 12 L 18 17.5 Z";
+    out property <string> next: "M 17 6 V 18 M 6 6.5 L 14.5 12 L 6 17.5 Z";
+    out property <string> stop: "M 7.5 7.5 H 16.5 V 16.5 H 7.5 Z";
+    out property <string> shuffle: "M 4 8 H 7 L 17 16 H 20 M 17 8 H 20 M 4 16 H 7 L 11 12 M 17.5 5.5 L 20 8 L 17.5 10.5 M 17.5 13.5 L 20 16 L 17.5 18.5";
+    out property <string> repeat: "M 4.5 12 A 7.5 7.5 0 0 1 17 7.2 M 19.5 12 A 7.5 7.5 0 0 1 7 16.8 M 14.5 4.2 L 17.6 7.1 L 14.2 9.2 M 9.5 19.8 L 6.4 16.9 L 9.8 14.8";
+    out property <string> skip-back: "M 12 4.5 A 7.5 7.5 0 1 1 4.5 12 M 12 4.5 L 15.5 1.5 M 12 4.5 L 15.5 7.5";
+    out property <string> skip-forward: "M 12 4.5 A 7.5 7.5 0 1 0 19.5 12 M 12 4.5 L 8.5 1.5 M 12 4.5 L 8.5 7.5";
+    out property <string> volume: "M 4 9.5 H 7.5 L 11.5 6 V 18 L 7.5 14.5 H 4 Z M 15 9 A 4.5 4.5 0 0 1 15 15 M 17.5 6.5 A 8 8 0 0 1 17.5 17.5";
+    out property <string> settings: "M 12 9 A 3 3 0 1 0 12 15 A 3 3 0 1 0 12 9 Z M 12 3.5 V 6 M 12 18 V 20.5 M 3.5 12 H 6 M 18 12 H 20.5 M 6 6 L 7.8 7.8 M 16.2 16.2 L 18 18 M 18 6 L 16.2 7.8 M 7.8 16.2 L 6 18";
+    out property <string> lyrics: "M 6 3.5 H 14.5 L 18.5 7.5 V 20.5 H 6 Z M 9 11 H 15.5 M 9 14.5 H 15.5 M 9 18 H 13";
+    out property <string> plus: "M 12 5 V 19 M 5 12 H 19";
+    out property <string> list: "M 4 7 H 20 M 4 12 H 20 M 4 17 H 14";
+    out property <string> trash: "M 4.5 7 H 19.5 M 9 7 V 4.5 H 15 V 7 M 6.5 7 L 7.6 20 H 16.4 L 17.5 7";
+    out property <string> pencil: "M 4.5 19.5 L 5.6 14.4 L 15.6 4.4 L 19.6 8.4 L 9.6 18.4 Z";
+    out property <string> minimize: "M 6 12 H 18";
+    out property <string> maximize: "M 6 6 H 18 V 18 H 6 Z";
+    out property <string> restore: "M 8.5 8.5 H 18.5 V 18.5 H 8.5 Z M 6 16 V 5.5 H 16";
+    out property <string> close: "M 6.5 6.5 L 17.5 17.5 M 17.5 6.5 L 6.5 17.5";
+    out property <string> waveform: "M 3 10 V 14 M 7.5 6 V 18 M 12 3 V 21 M 16.5 6 V 18 M 21 10 V 14";
+}
+
+// Layouts pin items with a max size to the top edge, so icon components leave
+// their cross axis free and center their content themselves.
+component Glyph inherits Rectangle {
+    in property <length> glyph-size: 18px;
+    in property <string> icon: "";
+    in property <color> tint: Theme.text;
+    in property <bool> filled: false;
+    in property <length> weight: 1.8px;
+    min-width: glyph-size;
+    min-height: glyph-size;
+    preferred-width: glyph-size;
+    preferred-height: glyph-size;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    Path {
+        x: (parent.width - root.glyph-size) / 2;
+        y: (parent.height - root.glyph-size) / 2;
+        width: root.glyph-size;
+        height: root.glyph-size;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: root.icon;
+        fill: root.filled ? root.tint : transparent;
+        stroke: root.filled ? transparent : root.tint;
+        stroke-width: root.weight;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+    }
+}
+
+component IconButton inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    in property <string> badge: "";
+    in property <length> size: 34px;
+    in property <length> icon-size: 18px;
+    in property <bool> filled-icon: false;
+    in property <bool> active: false;
+    in property <bool> plate: false;
+    in property <color> tint: Theme.muted;
+    callback clicked();
+    min-width: size;
+    max-width: size;
+    min-height: size;
+    preferred-height: size;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    accessible-role: button;
+    accessible-label: label;
+    Rectangle {
+        y: (parent.height - root.size) / 2;
+        width: root.size;
+        height: root.size;
+        border-radius: root.size / 2;
+        background: touch.has-hover ? (root.active ? Theme.accent-soft : Theme.hover) : (root.plate ? Theme.surface : transparent);
+        Glyph {
+            x: (parent.width - root.icon-size) / 2;
+            y: (parent.height - root.icon-size) / 2;
+            width: root.icon-size;
+            height: root.icon-size;
+            glyph-size: root.icon-size;
+            icon: root.icon;
+            filled: root.filled-icon;
+            tint: root.active ? Theme.accent : root.tint;
+        }
+        if root.badge != "": Text {
+            width: parent.width;
+            height: parent.height;
+            text: root.badge;
+            font-size: 9px;
+            color: root.tint;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        touch := TouchArea {
+            mouse-cursor: pointer;
+            clicked => { root.clicked(); }
+        }
+    }
+}
+
+// Cover-flow side panel. Slint has no 3D transform, so the image is drawn as thin
+// vertical strips whose height interpolates between the two edges -> a perspective trapezoid.
+component PerspectiveCover inherits Rectangle {
+    in property <image> source;
+    in property <length> left-height;
+    in property <length> right-height;
+    property <int> strips: 32;
+    visible: source.width > 0;
+    for _s[i] in root.strips: Image {
+        property <float> t: (i + 0.5) / root.strips;
+        x: root.width * i / root.strips;
+        width: root.width / root.strips + 1px;
+        height: root.left-height + (root.right-height - root.left-height) * t;
+        y: (root.height - self.height) / 2;
+        source: root.source;
+        source-clip-x: floor(root.source.width * i / root.strips);
+        source-clip-y: 0;
+        source-clip-width: max(1, floor(root.source.width / root.strips));
+        source-clip-height: root.source.height;
+        image-fit: fill;
+    }
+}
+
+// Thin vertical divider that stays centered inside a row layout.
+component VDivider inherits Rectangle {
+    in property <length> line-height: 18px;
+    min-width: 1px;
+    max-width: 1px;
+    Rectangle {
+        y: (parent.height - root.line-height) / 2;
+        width: 1px;
+        height: root.line-height;
+        background: Theme.line;
+    }
+}
+
+component Timeline inherits Rectangle {
+    in property <float> position;
+    in property <float> duration;
+    callback seek-to(float);
+    min-height: 28px;
+    accessible-role: slider;
+    accessible-label: "Tiến trình bài hát";
+    property <float> ratio: duration > 0 ? min(1, max(0, position / duration)) : 0;
+    Rectangle {
+        y: (parent.height - 4px) / 2;
+        height: 4px;
+        width: parent.width;
+        border-radius: 2px;
+        background: Theme.line;
+    }
+    Rectangle {
+        x: 0;
+        y: (parent.height - 4px) / 2;
+        height: 4px;
+        width: parent.width * root.ratio;
+        border-radius: 2px;
+        background: Theme.accent;
+    }
+    Rectangle {
+        x: min(parent.width - 12px, max(-6px, parent.width * root.ratio - 6px));
+        y: (parent.height - 12px) / 2;
+        width: 12px;
+        height: 12px;
+        border-radius: 6px;
+        background: Theme.accent;
+        opacity: touch.has-hover || touch.pressed ? 1 : 0.001;
+        animate opacity { duration: Motion.fast; }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left) {
+                if (event.kind == PointerEventKind.down || event.kind == PointerEventKind.move) {
+                    root.seek-to(min(1, max(0, (touch.mouse-x / 1px) / (root.width / 1px))) * root.duration);
+                }
+                return EventResult.accept;
+            }
+            return EventResult.reject;
+        }
+    }
+}
+
+component VolumeSlider inherits Rectangle {
+    in property <float> volume;
+    callback set-volume(float);
+    min-height: 26px;
+    accessible-role: slider;
+    accessible-label: "Âm lượng";
+    Rectangle {
+        y: (parent.height - 4px) / 2;
+        height: 4px;
+        width: parent.width;
+        border-radius: 2px;
+        background: Theme.line;
+    }
+    Rectangle {
+        x: 0;
+        y: (parent.height - 4px) / 2;
+        height: 4px;
+        width: parent.width * root.volume;
+        border-radius: 2px;
+        background: Theme.accent;
+    }
+    Rectangle {
+        x: min(parent.width - 10px, max(0px, parent.width * root.volume - 5px));
+        y: (parent.height - 10px) / 2;
+        width: 10px;
+        height: 10px;
+        border-radius: 5px;
+        background: Theme.accent;
+    }
+    volume-touch := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left
+                && (event.kind == PointerEventKind.down || event.kind == PointerEventKind.move)) {
+                root.set-volume(min(1, max(0, (volume-touch.mouse-x / 1px) / (root.width / 1px))));
+                return EventResult.accept;
+            }
+            return EventResult.reject;
+        }
+    }
+}
+
+component TabHeader inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected;
+    callback clicked();
+    min-height: 44px;
+    min-width: label.preferred-width;
+    horizontal-stretch: 0;
+    accessible-role: button;
+    accessible-label: text;
+    label := Text {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        text: root.text;
+        font-size: 16px;
+        color: root.selected ? Theme.accent : (hover.has-hover ? Theme.text : Theme.muted);
+        vertical-alignment: center;
+        horizontal-alignment: left;
+    }
+    Rectangle {
+        x: 0;
+        y: parent.height - 2px;
+        height: 2px;
+        width: parent.width;
+        border-radius: 1px;
+        background: Theme.accent;
+        opacity: root.selected ? 1 : 0;
+        animate opacity { duration: Motion.fast; }
+    }
+    hover := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component TrackListItem inherits Rectangle {
+    in property <string> title;
+    in property <string> artist;
+    in property <string> duration;
+    in property <image> cover;
+    in property <bool> missing;
+    in property <bool> current;
+    in property <bool> selected;
+    in property <bool> removable: false;
+    callback activate();
+    callback remove();
+    height: 72px;
+    background: selected ? Theme.hover : (touch.has-hover ? Theme.hover : transparent);
+    accessible-role: list-item;
+    accessible-label: title;
+    Rectangle {
+        x: 0;
+        y: (parent.height - 30px) / 2;
+        width: 3px;
+        height: 30px;
+        border-radius: 2px;
+        background: Theme.accent;
+        opacity: current ? 1 : 0;
+    }
+    Rectangle {
+        x: 10px;
+        y: (parent.height - 52px) / 2;
+        width: 52px;
+        height: 52px;
+        border-radius: 6px;
+        background: Theme.surface;
+        clip: true;
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: root.cover;
+            image-fit: ImageFit.cover;
+        }
+    }
+    Text {
+        x: 76px;
+        y: 14px;
+        width: parent.width - 76px - 74px;
+        height: 24px;
+        text: root.title;
+        color: root.missing ? Theme.muted : Theme.text;
+        font-size: 16px;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    Text {
+        x: 76px;
+        y: parent.height - 34px;
+        width: parent.width - 76px - 74px;
+        height: 20px;
+        text: root.missing ? "Không tìm thấy tệp" : root.artist;
+        color: Theme.muted;
+        font-size: 13px;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    Text {
+        x: parent.width - 66px;
+        width: 56px;
+        height: parent.height;
+        text: root.duration;
+        color: Theme.muted;
+        font-size: 14px;
+        horizontal-alignment: right;
+        vertical-alignment: center;
+    }
+    Rectangle {
+        visible: root.removable && touch.has-hover;
+        x: parent.width - 34px;
+        y: (parent.height - 26px) / 2;
+        width: 26px;
+        height: 26px;
+        border-radius: 13px;
+        background: Theme.hover;
+        accessible-role: button;
+        accessible-label: "Bỏ khỏi playlist";
+        Glyph {
+            x: 6px;
+            y: 6px;
+            width: 14px;
+            height: 14px;
+            glyph-size: 14px;
+            icon: Icons.trash;
+            tint: Theme.muted;
+        }
+        TouchArea {
+            mouse-cursor: pointer;
+            clicked => { root.remove(); }
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.activate(); }
+    }
+}
+
+component PlaylistListItem inherits Rectangle {
+    in property <string> name;
+    in property <string> count;
+    in property <image> cover;
+    in property <bool> current;
+    callback activate();
+    height: 64px;
+    background: touch.has-hover ? Theme.hover : transparent;
+    accessible-role: list-item;
+    accessible-label: name;
+    Rectangle {
+        x: 0;
+        y: (parent.height - 26px) / 2;
+        width: 3px;
+        height: 26px;
+        border-radius: 2px;
+        background: Theme.accent;
+        opacity: root.current ? 1 : 0;
+    }
+    Rectangle {
+        x: 12px;
+        y: (parent.height - 40px) / 2;
+        width: 40px;
+        height: 40px;
+        border-radius: 6px;
+        background: Theme.surface;
+        clip: true;
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: root.cover;
+            image-fit: ImageFit.cover;
+        }
+    }
+    Text {
+        x: 60px;
+        y: 12px;
+        width: parent.width - 68px;
+        height: 22px;
+        text: root.name;
+        color: Theme.text;
+        font-size: 15px;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    Text {
+        x: 60px;
+        y: parent.height - 30px;
+        width: parent.width - 68px;
+        height: 18px;
+        text: root.count;
+        color: Theme.muted;
+        font-size: 12px;
+        vertical-alignment: center;
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.activate(); }
+    }
+}
+
+export component AppWindow inherits Window {
+    in property <string> app-title: "Puw Player";
+
+    in-out property <[TrackRow]> tracks;
+    in-out property <[PlaylistRow]> playlists;
+    in-out property <[TrackRow]> playlist-tracks;
+    in-out property <[LyricRow]> lyrics;
+
+    in-out property <bool> has-track;
+    in-out property <bool> playing;
+    in-out property <bool> shuffle;
+    in-out property <int> repeat-mode: 0;
+    in-out property <int> tab: 0;
+    in-out property <bool> lyrics-visible;
+    in-out property <bool> lyrics-instrumental;
+    in-out property <bool> lyrics-plain;
+    in-out property <string> lyrics-status;
+    in-out property <bool> following: true;
+    in-out property <int> active-lyric: -1;
+    in-out property <string> lyric-offset: "+0.0s";
+    in-out property <bool> settings-visible;
+    in-out property <bool> lyrics-online;
+    in-out property <int> theme-mode: 0;
+    in-out property <int> current-track: -1;
+    in-out property <int> current-playlist: -1;
+    in-out property <int> current-playlist-track: -1;
+    in-out property <string> current-playlist-name: "";
+    in-out property <string> current-playlist-count: "";
+    in-out property <int> selected-track: -1;
+    in-out property <bool> window-maximized;
+    in-out property <bool> add-menu-visible;
+    in-out property <int> dialog-mode: 0;
+    in-out property <string> dialog-text;
+    in-out property <string> dialog-title;
+    in-out property <string> status-message;
+    in-out property <bool> has-status;
+    in-out property <bool> importing;
+
+    in-out property <string> now-title: "Chưa chọn bài";
+    in-out property <string> now-artist: "Chọn một bài hát để bắt đầu";
+    in-out property <string> now-source: "";
+    in-out property <string> now-device: "";
+    in-out property <image> cover;
+    in-out property <image> cover-prev;
+    in-out property <image> cover-next;
+    in-out property <image> cover-prev2;
+    in-out property <image> cover-next2;
+
+    in-out property <float> position;
+    in-out property <float> duration;
+    in-out property <float> volume: 1;
+    in-out property <string> position-label: "00:00";
+    in-out property <string> duration-label: "00:00";
+    in-out property <string> volume-label: "100%";
+    in-out property <string> repeat-label: "Tắt";
+
+    callback window-minimize();
+    callback window-maximize();
+    callback window-close();
+    callback play-pause();
+    callback stop();
+    callback next();
+    callback previous();
+    callback seek-backward();
+    callback seek-forward();
+    callback seek-to(float);
+    callback set-volume(float);
+    callback toggle-shuffle();
+    callback cycle-repeat();
+    callback activate-track(int);
+    callback select-playlist(int);
+    callback play-playlist();
+    callback add-files();
+    callback add-folder();
+    callback create-playlist(string);
+    callback rename-playlist(string);
+    callback delete-playlist();
+    callback add-to-playlist();
+    callback remove-playlist-track(int);
+    callback toggle-lyrics();
+    callback toggle-settings();
+    callback set-theme(int);
+    callback set-lyrics-online(bool);
+    callback lyric-click(int);
+    callback lyric-offset-step(int);
+    callback dialog-confirm(string);
+    callback dialog-cancel();
+    callback dismiss-status();
+
+    title: app-title;
+    no-frame: true;
+    resize-border-width: 5px;
+    min-width: 960px;
+    min-height: 600px;
+    preferred-width: 1200px;
+    preferred-height: 680px;
+    background: Theme.bg;
+    default-font-family: "Segoe UI";
+    default-font-size: 14px;
+
+    changed active-lyric => {
+        if (root.following && root.active-lyric >= 0) {
+            lyric-scroll.content-y = max(0px, root.active-lyric * 34px - 150px);
+        }
+    }
+    changed following => {
+        if (root.following && root.active-lyric >= 0) {
+            lyric-scroll.content-y = max(0px, root.active-lyric * 34px - 150px);
+        }
+    }
+
+    app-focus := FocusScope {
+        width: 100%;
+        height: 100%;
+        focus-on-click: true;
+        init => { self.focus(); }
+        key-pressed(event) => {
+            if (event.text == Key.Space) { root.play-pause(); return EventResult.accept; }
+            if (event.text == Key.LeftArrow) { root.seek-backward(); return EventResult.accept; }
+            if (event.text == Key.RightArrow) { root.seek-forward(); return EventResult.accept; }
+            if (event.text == Key.UpArrow) { root.set-volume(min(1, root.volume + 0.05)); return EventResult.accept; }
+            if (event.text == Key.DownArrow) { root.set-volume(max(0, root.volume - 0.05)); return EventResult.accept; }
+            if (event.text == Key.Escape) {
+                if (root.dialog-mode > 0) { root.dialog-cancel(); return EventResult.accept; }
+                if (root.add-menu-visible) { root.add-menu-visible = false; return EventResult.accept; }
+                if (root.settings-visible) { root.toggle-settings(); return EventResult.accept; }
+                if (root.lyrics-visible) { root.toggle-lyrics(); return EventResult.accept; }
+            }
+            return EventResult.reject;
+        }
+    }
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: root.window-maximized ? 0px : 12px;
+        clip: true;
+        background: Theme.bg;
+
+        // ── Title bar ────────────────────────────────────────────────
+            Rectangle {
+                x: 0;
+                y: 0;
+                width: parent.width;
+                height: 56px;
+                background: transparent;
+
+                WindowMoveArea {
+                    x: 0;
+                    y: 0;
+                    width: parent.width - 380px;
+                    height: parent.height;
+                }
+
+                HorizontalLayout {
+                    x: 18px;
+                    y: 0;
+                    width: parent.width - 36px;
+                    height: parent.height;
+                    spacing: 0;
+
+                    HorizontalLayout {
+                        spacing: 10px;
+                        alignment: start;
+                        Glyph {
+                            glyph-size: 22px;
+                            icon: Icons.waveform;
+                            weight: 2.4px;
+                            tint: Theme.accent;
+                        }
+                        Text {
+                            text: "Puw Player";
+                            color: Theme.text;
+                            font-size: 17px;
+                            font-weight: 600;
+                            vertical-alignment: center;
+                        }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+
+                    HorizontalLayout {
+                        spacing: 4px;
+                        alignment: end;
+                        IconButton {
+                            icon: Icons.plus;
+                            label: "Thêm nhạc";
+                            active: root.add-menu-visible;
+                            clicked => { root.add-menu-visible = !root.add-menu-visible; }
+                        }
+                        IconButton {
+                            icon: Icons.list;
+                            label: "Playlist";
+                            active: root.tab == 1;
+                            clicked => { root.tab = 1; }
+                        }
+                        IconButton {
+                            icon: Icons.lyrics;
+                            label: "Lời bài hát";
+                            active: root.lyrics-visible;
+                            clicked => { root.toggle-lyrics(); }
+                        }
+                        IconButton {
+                            icon: Icons.settings;
+                            label: "Cài đặt";
+                            active: root.settings-visible;
+                            clicked => { root.toggle-settings(); }
+                        }
+                        VDivider { line-height: 22px; }
+                        IconButton {
+                            icon: Icons.minimize;
+                            label: "Thu nhỏ";
+                            icon-size: 16px;
+                            clicked => { root.window-minimize(); }
+                        }
+                        IconButton {
+                            icon: root.window-maximized ? Icons.restore : Icons.maximize;
+                            label: root.window-maximized ? "Khôi phục" : "Phóng to";
+                            icon-size: 15px;
+                            clicked => { root.window-maximize(); }
+                        }
+                        IconButton {
+                            icon: Icons.close;
+                            label: "Đóng";
+                            icon-size: 15px;
+                            clicked => { root.window-close(); }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    x: parent.width - 336px;
+                    y: 50px;
+                    width: 210px;
+                    height: 92px;
+                    border-radius: 10px;
+                    background: Theme.surface;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    visible: root.add-menu-visible;
+                    VerticalLayout {
+                        width: parent.width;
+                        height: parent.height;
+                        padding: 4px;
+                        spacing: 0;
+                        Rectangle {
+                            min-height: 40px;
+                            background: add-file-touch.has-hover ? Theme.hover : transparent;
+                            border-radius: 7px;
+                            Text {
+                                x: 10px;
+                                width: parent.width - 20px;
+                                height: parent.height;
+                                text: "Thêm tệp nhạc…";
+                                color: Theme.text;
+                                font-size: 14px;
+                                vertical-alignment: center;
+                            }
+                            add-file-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.add-menu-visible = false; root.add-files(); }
+                            }
+                        }
+                        Rectangle {
+                            min-height: 40px;
+                            background: add-folder-touch.has-hover ? Theme.hover : transparent;
+                            border-radius: 7px;
+                            Text {
+                                x: 10px;
+                                width: parent.width - 20px;
+                                height: parent.height;
+                                text: "Thêm thư mục…";
+                                color: Theme.text;
+                                font-size: 14px;
+                                vertical-alignment: center;
+                            }
+                            add-folder-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.add-menu-visible = false; root.add-folder(); }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Body ────────────────────────────────────────────────────
+            Rectangle {
+                x: 0;
+                y: 56px;
+                width: parent.width;
+                height: parent.height - 62px;
+                background: transparent;
+
+                // Left column
+                Rectangle {
+                    x: 24px;
+                    y: 0;
+                    width: parent.width * 0.55 - 60px;
+                    height: parent.height;
+                    background: transparent;
+
+                    Rectangle {
+                        x: 0;
+                        y: 0;
+                        width: parent.width;
+                        height: max(240px, parent.height - 308px);
+                        background: transparent;
+                        clip: true;
+
+                        // Neighbors as perspective panels beside the main cover, proportions from
+                        // approved-player.png: outer edge taller than the edge next to the main cover.
+                        // `side` shrinks the panels when the column is too narrow to fit them.
+                        property <float> side: min(1, max(0, (self.width / 2 - 128px) / 164px));
+                        PerspectiveCover {
+                            x: parent.width / 2 - 128px - 162px * parent.side;
+                            width: 62px * parent.side;
+                            height: parent.height;
+                            source: root.cover-prev2;
+                            left-height: 204px;
+                            right-height: 182px;
+                            opacity: 0.7;
+                        }
+                        PerspectiveCover {
+                            x: parent.width / 2 + 128px + 100px * parent.side;
+                            width: 62px * parent.side;
+                            height: parent.height;
+                            source: root.cover-next2;
+                            left-height: 182px;
+                            right-height: 204px;
+                            opacity: 0.7;
+                        }
+                        PerspectiveCover {
+                            x: parent.width / 2 - 128px - 100px * parent.side;
+                            width: 100px * parent.side;
+                            height: parent.height;
+                            source: root.cover-prev;
+                            left-height: 230px;
+                            right-height: 206px;
+                            opacity: 0.9;
+                        }
+                        PerspectiveCover {
+                            x: parent.width / 2 + 128px;
+                            width: 100px * parent.side;
+                            height: parent.height;
+                            source: root.cover-next;
+                            left-height: 206px;
+                            right-height: 230px;
+                            opacity: 0.9;
+                        }
+
+                        Rectangle {
+                            x: parent.width / 2 - 128px;
+                            y: (parent.height - 256px) / 2;
+                            width: 256px;
+                            height: 256px;
+                            border-radius: 6px;
+                            clip: true;
+                            background: Theme.surface;
+                            Image {
+                                width: parent.width;
+                                height: parent.height;
+                                source: root.cover;
+                                image-fit: contain;
+                            }
+                            VerticalLayout {
+                                visible: root.cover.width == 0;
+                                alignment: center;
+                                spacing: 8px;
+                                Glyph {
+                                    glyph-size: 40px;
+                                    icon: Icons.lyrics;
+                                    tint: Theme.line;
+                                }
+                                Text {
+                                    text: root.has-track ? "Không có bìa" : "Chưa chọn bài";
+                                    color: Theme.muted;
+                                    font-size: 13px;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        x: 0;
+                        y: parent.height - 308px;
+                        width: parent.width;
+                        height: 116px;
+                        background: transparent;
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+                            Text {
+                                text: root.now-title;
+                                color: Theme.text;
+                                font-size: 26px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: root.now-artist;
+                                color: Theme.muted;
+                                font-size: 15px;
+                                horizontal-alignment: center;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: root.now-source;
+                                color: Theme.muted;
+                                font-size: 13px;
+                                horizontal-alignment: center;
+                                overflow: elide;
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        x: 0;
+                        y: parent.height - 192px;
+                        width: parent.width;
+                        height: 34px;
+                        spacing: 12px;
+                        Text {
+                            text: root.position-label;
+                            color: Theme.muted;
+                            font-size: 13px;
+                            vertical-alignment: center;
+                        }
+                        Timeline {
+                            horizontal-stretch: 1;
+                            position: root.position;
+                            duration: root.duration;
+                            seek-to(seconds) => { root.seek-to(seconds); }
+                        }
+                        Text {
+                            text: root.duration-label;
+                            color: Theme.muted;
+                            font-size: 13px;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        x: 0;
+                        y: parent.height - 143px;
+                        width: parent.width;
+                        height: 76px;
+                        alignment: center;
+                        spacing: 16px;
+
+                        IconButton {
+                            icon: Icons.shuffle;
+                            label: "Phát ngẫu nhiên";
+                            size: 44px;
+                            plate: true;
+                            active: root.shuffle;
+                            clicked => { root.toggle-shuffle(); }
+                        }
+                        IconButton {
+                            icon: Icons.skip-back;
+                            badge: "10";
+                            label: "Lùi 10 giây";
+                            size: 44px;
+                            icon-size: 26px;
+                            plate: true;
+                            clicked => { root.seek-backward(); }
+                        }
+                        IconButton {
+                            icon: Icons.previous;
+                            label: "Bài trước";
+                            size: 50px;
+                            icon-size: 20px;
+                            plate: true;
+                            tint: Theme.text;
+                            clicked => { root.previous(); }
+                        }
+                        Rectangle {
+                            min-width: 76px;
+                            max-width: 76px;
+                            min-height: 76px;
+                            max-height: 76px;
+                            border-radius: 38px;
+                            background: Theme.accent;
+                            opacity: root.has-track ? 1 : 0.45;
+                            accessible-role: button;
+                            accessible-label: root.playing ? "Tạm dừng" : "Phát";
+                            Glyph {
+                                x: 26px;
+                                y: 26px;
+                                width: 24px;
+                                height: 24px;
+                                glyph-size: 24px;
+                                icon: Icons.play;
+                                filled: true;
+                                tint: Theme.on-accent;
+                                opacity: root.playing ? 0 : 1;
+                                animate opacity { duration: Motion.fast; }
+                            }
+                            Glyph {
+                                x: 26px;
+                                y: 26px;
+                                width: 24px;
+                                height: 24px;
+                                glyph-size: 24px;
+                                icon: Icons.pause;
+                                weight: 3.4px;
+                                tint: Theme.on-accent;
+                                opacity: root.playing ? 1 : 0;
+                                animate opacity { duration: Motion.fast; }
+                            }
+                            TouchArea { mouse-cursor: pointer; clicked => { root.play-pause(); } }
+                        }
+                        IconButton {
+                            icon: Icons.next;
+                            label: "Bài tiếp theo";
+                            size: 50px;
+                            icon-size: 20px;
+                            plate: true;
+                            tint: Theme.text;
+                            clicked => { root.next(); }
+                        }
+                        IconButton {
+                            icon: Icons.skip-forward;
+                            badge: "10";
+                            label: "Tiến 10 giây";
+                            size: 44px;
+                            icon-size: 26px;
+                            plate: true;
+                            clicked => { root.seek-forward(); }
+                        }
+                        // Label sits below the button; equal top padding keeps the button on the row's center line.
+                        VerticalLayout {
+                            spacing: 0;
+                            alignment: center;
+                            padding-top: 16px;
+                            IconButton {
+                                icon: Icons.repeat;
+                                label: "Lặp lại";
+                                size: 44px;
+                                plate: true;
+                                active: root.repeat-mode > 0;
+                                clicked => { root.cycle-repeat(); }
+                            }
+                            Text {
+                                height: 16px;
+                                vertical-alignment: center;
+                                text: root.repeat-label;
+                                color: root.repeat-mode > 0 ? Theme.accent : Theme.muted;
+                                font-size: 11px;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        x: 0;
+                        y: parent.height - 52px;
+                        width: parent.width;
+                        height: 52px;
+                        spacing: 14px;
+                        alignment: center;
+                        IconButton {
+                            icon: Icons.stop;
+                            label: "Dừng";
+                            size: 40px;
+                            icon-size: 14px;
+                            plate: true;
+                            clicked => { root.stop(); }
+                        }
+                        VDivider { }
+                        Glyph {
+                            glyph-size: 20px;
+                            icon: Icons.volume;
+                            tint: Theme.muted;
+                        }
+                        VolumeSlider {
+                            min-width: 200px;
+                            max-width: 260px;
+                            volume: root.volume;
+                            set-volume(value) => { root.set-volume(value); }
+                        }
+                        Text {
+                            text: root.volume-label;
+                            color: Theme.muted;
+                            font-size: 13px;
+                            min-width: 44px;
+                            vertical-alignment: center;
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                        Text {
+                            text: root.now-device;
+                            color: Theme.muted;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                            horizontal-alignment: right;
+                            overflow: elide;
+                        }
+                    }
+                }
+
+                Rectangle {
+                    x: parent.width * 0.55 - 12px;
+                    y: 6px;
+                    width: 1px;
+                    height: parent.height - 12px;
+                    background: @linear-gradient(180deg, transparent 0%, Theme.line 8%, Theme.line 92%, transparent 100%);
+                }
+
+                // Right column
+                Rectangle {
+                    x: parent.width * 0.55 + 4px;
+                    y: 0;
+                    width: parent.width * 0.45 - 16px;
+                    height: parent.height;
+                    background: transparent;
+
+                    Rectangle {
+                        x: 16px;
+                        y: 0;
+                        width: parent.width - 20px;
+                        height: 46px;
+                        background: transparent;
+                        visible: !root.settings-visible && !root.lyrics-visible;
+                        HorizontalLayout {
+                            width: parent.width;
+                            height: parent.height;
+                            spacing: 22px;
+                            TabHeader {
+                                text: "Bài hát";
+                                selected: root.tab == 0;
+                                clicked => { root.tab = 0; }
+                            }
+                            TabHeader {
+                                text: "Playlist";
+                                selected: root.tab == 1;
+                                clicked => { root.tab = 1; }
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                            IconButton {
+                                visible: root.tab == 1;
+                                icon: Icons.plus;
+                                label: "Tạo playlist";
+                                icon-size: 16px;
+                                clicked => {
+                                    root.dialog-mode = 1;
+                                    root.dialog-title = "Playlist mới";
+                                    root.dialog-text = "";
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        x: 16px;
+                        y: 46px;
+                        width: parent.width - 20px;
+                        height: parent.height - 46px;
+                        background: transparent;
+                        visible: root.tab == 0 && !root.lyrics-visible && !root.settings-visible;
+                        ListView {
+                            x: 0;
+                            y: 0;
+                            width: parent.width;
+                            height: parent.height;
+                            for row[i] in root.tracks : TrackListItem {
+                                title: row.title;
+                                artist: row.artist;
+                                duration: row.duration;
+                                cover: row.cover;
+                                missing: row.missing;
+                                current: root.current-track == i;
+                                selected: root.selected-track == i;
+                                activate => {
+                                    root.selected-track = i;
+                                    root.activate-track(i);
+                                }
+                            }
+                        }
+                        Text {
+                            x: 4px;
+                            y: 14px;
+                            width: parent.width - 8px;
+                            text: "Chưa có bài hát. Thêm tệp hoặc thư mục ở góc trên.";
+                            visible: root.tracks.length == 0;
+                            wrap: word-wrap;
+                            color: Theme.muted;
+                            font-size: 14px;
+                        }
+                    }
+
+                    Rectangle {
+                        x: 16px;
+                        y: 46px;
+                        width: parent.width - 20px;
+                        height: parent.height - 46px;
+                        background: transparent;
+                        visible: root.tab == 1 && !root.lyrics-visible && !root.settings-visible;
+
+                        Rectangle {
+                            x: 0;
+                            y: 0;
+                            width: parent.width * 0.32;
+                            height: parent.height;
+                            background: transparent;
+                            ListView {
+                                x: 0;
+                                y: 0;
+                                width: parent.width;
+                                height: parent.height;
+                                for play[pi] in root.playlists : PlaylistListItem {
+                                    name: play.name;
+                                    count: play.count;
+                                    cover: play.cover;
+                                    current: root.current-playlist == pi;
+                                    activate => { root.select-playlist(pi); }
+                                }
+                            }
+                        }
+                        Rectangle {
+                            x: parent.width * 0.32 + 4px;
+                            y: 6px;
+                            width: 1px;
+                            height: parent.height - 12px;
+                            background: @linear-gradient(180deg, transparent 0%, Theme.line 6%, Theme.line 94%, transparent 100%);
+                        }
+                        Rectangle {
+                            x: parent.width * 0.32 + 12px;
+                            y: 0;
+                            width: parent.width * 0.68 - 12px;
+                            height: parent.height;
+                            background: transparent;
+                            visible: root.current-playlist >= 0;
+
+                            Rectangle {
+                                x: 0;
+                                y: 0;
+                                width: parent.width;
+                                height: 58px;
+                                background: transparent;
+                                HorizontalLayout {
+                                    width: parent.width;
+                                    height: parent.height;
+                                    spacing: 6px;
+                                    VerticalLayout {
+                                        alignment: center;
+                                        spacing: 0;
+                                        Text {
+                                            text: root.current-playlist-name;
+                                            color: Theme.text;
+                                            font-size: 17px;
+                                            font-weight: 600;
+                                            overflow: elide;
+                                        }
+                                        Text {
+                                            text: root.current-playlist-count;
+                                            color: Theme.muted;
+                                            font-size: 12px;
+                                        }
+                                    }
+                                    Rectangle { horizontal-stretch: 1; }
+                                    IconButton {
+                                        icon: Icons.plus;
+                                        label: "Thêm bài đang phát vào playlist";
+                                        icon-size: 15px;
+                                        clicked => { root.add-to-playlist(); }
+                                    }
+                                    IconButton {
+                                        icon: Icons.play;
+                                        filled-icon: true;
+                                        label: "Phát playlist";
+                                        icon-size: 14px;
+                                        clicked => { root.play-playlist(); }
+                                    }
+                                    IconButton {
+                                        icon: Icons.pencil;
+                                        label: "Đổi tên playlist";
+                                        icon-size: 14px;
+                                        clicked => {
+                                            root.dialog-mode = 2;
+                                            root.dialog-title = "Đổi tên playlist";
+                                            root.dialog-text = root.current-playlist-name;
+                                        }
+                                    }
+                                    IconButton {
+                                        icon: Icons.trash;
+                                        label: "Xóa playlist";
+                                        icon-size: 15px;
+                                        clicked => {
+                                            root.dialog-mode = 3;
+                                            root.dialog-title = "Xóa playlist này?";
+                                            root.dialog-text = "";
+                                        }
+                                    }
+                                }
+                            }
+                            Rectangle {
+                                x: 0;
+                                y: 58px;
+                                width: parent.width;
+                                height: 1px;
+                                background: Theme.line;
+                            }
+                            Rectangle {
+                                x: 0;
+                                y: 59px;
+                                width: parent.width;
+                                height: parent.height - 59px;
+                                background: transparent;
+                                ListView {
+                                    x: 0;
+                                    y: 0;
+                                    width: parent.width;
+                                    height: parent.height;
+                                    for row[ti] in root.playlist-tracks : TrackListItem {
+                                        title: row.title;
+                                        artist: row.artist;
+                                        duration: row.duration;
+                                        cover: row.cover;
+                                        missing: row.missing;
+                                        current: root.current-playlist-track == ti;
+                                        selected: false;
+                                        removable: true;
+                                        remove => { root.remove-playlist-track(ti); }
+                                        activate => { root.activate-track(ti); }
+                                    }
+                                }
+                                Text {
+                                    x: 4px;
+                                    y: 10px;
+                                    width: parent.width - 8px;
+                                    text: "Playlist trống.";
+                                    visible: root.playlist-tracks.length == 0;
+                                    color: Theme.muted;
+                                    font-size: 13px;
+                                }
+                            }
+                        }
+                        Text {
+                            visible: root.current-playlist < 0;
+                            x: parent.width * 0.32 + 12px;
+                            y: 20px;
+                            width: parent.width * 0.68 - 12px;
+                            text: "Chọn một playlist bên trái.";
+                            color: Theme.muted;
+                            font-size: 13px;
+                        }
+                    }
+
+                    // Lyrics pane
+                    Rectangle {
+                        x: 16px;
+                        y: 0;
+                        width: parent.width - 20px;
+                        height: parent.height;
+                        background: transparent;
+                        visible: root.lyrics-visible && !root.settings-visible;
+
+                        Rectangle {
+                            x: 0;
+                            y: 0;
+                            width: parent.width;
+                            height: 44px;
+                            background: transparent;
+                            HorizontalLayout {
+                                width: parent.width;
+                                height: parent.height;
+                                spacing: 6px;
+                                Text {
+                                    text: "Lời bài hát";
+                                    color: Theme.text;
+                                    font-size: 15px;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                }
+                                Rectangle { horizontal-stretch: 1; }
+                                Text {
+                                    text: root.lyric-offset;
+                                    color: Theme.muted;
+                                    font-size: 11px;
+                                    vertical-alignment: center;
+                                }
+                                IconButton {
+                                    icon: Icons.minimize;
+                                    label: "Dời lời muộn hơn 0,5 giây";
+                                    icon-size: 12px;
+                                    size: 24px;
+                                    clicked => { root.lyric-offset-step(-1); }
+                                }
+                                IconButton {
+                                    icon: Icons.plus;
+                                    label: "Dời lời sớm hơn 0,5 giây";
+                                    icon-size: 12px;
+                                    size: 24px;
+                                    clicked => { root.lyric-offset-step(1); }
+                                }
+                                Rectangle {
+                                    min-width: 86px;
+                                    max-width: 86px;
+                                    accessible-role: button;
+                                    accessible-label: "Theo bài hát";
+                                    Rectangle {
+                                        y: (parent.height - 24px) / 2;
+                                        height: 24px;
+                                        border-radius: 12px;
+                                        background: follow-touch.has-hover ? Theme.hover : (root.following ? Theme.accent-soft : transparent);
+                                        border-width: 1px;
+                                        border-color: root.following ? Theme.accent : Theme.line;
+                                        Text {
+                                            width: parent.width;
+                                            height: parent.height;
+                                            text: "Theo bài hát";
+                                            color: root.following ? Theme.accent : Theme.muted;
+                                            font-size: 10px;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                        follow-touch := TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { root.following = true; }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Rectangle {
+                            x: 0;
+                            y: 44px;
+                            width: parent.width;
+                            height: parent.height - 44px;
+                            background: transparent;
+                            lyric-scroll := ScrollView {
+                                x: 0;
+                                y: 0;
+                                width: parent.width;
+                                height: parent.height;
+                                VerticalLayout {
+                                    spacing: 0;
+                                    padding-top: 8px;
+                                    padding-bottom: 24px;
+                                    for line[li] in root.lyrics : Rectangle {
+                                        min-height: line.text == "" ? 14px : 34px;
+                                        max-height: line.text == "" ? 14px : 34px;
+                                        background: lyric-touch.has-hover && line.timed ? Theme.hover : transparent;
+                                        border-radius: 6px;
+                                        Text {
+                                            x: 6px;
+                                            width: parent.width - 12px;
+                                            height: parent.height;
+                                            text: line.text;
+                                            color: line.active ? Theme.accent : Theme.muted;
+                                            font-size: line.active ? 16px : 14px;
+                                            font-weight: line.active ? 600 : 400;
+                                            vertical-alignment: center;
+                                            wrap: word-wrap;
+                                            overflow: elide;
+                                            animate color { duration: Motion.fast; }
+                                        }
+                                        lyric-touch := TouchArea {
+                                            mouse-cursor: line.timed ? MouseCursor.pointer : MouseCursor.default;
+                                            clicked => { if (line.timed) { root.following = true; root.lyric-click(line.seconds); } }
+                                            scroll-event(event) => { root.following = false; return EventResult.reject; }
+                                        }
+                                    }
+                                }
+                            }
+                            Text {
+                                x: 6px;
+                                y: 12px;
+                                width: parent.width - 12px;
+                                text: root.lyrics-status;
+                                visible: root.lyrics-status != "";
+                                wrap: word-wrap;
+                                color: Theme.muted;
+                                font-size: 13px;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Settings
+                    Rectangle {
+                        x: 16px;
+                        y: 0;
+                        width: parent.width - 20px;
+                        height: parent.height;
+                        background: transparent;
+                        visible: root.settings-visible;
+                        VerticalLayout {
+                            spacing: 12px;
+                            padding-top: 4px;
+                            Rectangle {
+                                min-height: 40px;
+                                max-height: 40px;
+                                background: transparent;
+                                HorizontalLayout {
+                                    width: parent.width;
+                                    height: parent.height;
+                                    Text {
+                                        text: "Cài đặt";
+                                        color: Theme.text;
+                                        font-size: 17px;
+                                        font-weight: 600;
+                                        vertical-alignment: center;
+                                    }
+                                    Rectangle { horizontal-stretch: 1; }
+                                    IconButton {
+                                        icon: Icons.close;
+                                        label: "Đóng cài đặt";
+                                        icon-size: 14px;
+                                        clicked => { root.toggle-settings(); }
+                                    }
+                                }
+                            }
+                            Text { text: "Giao diện"; color: Theme.muted; font-size: 12px; }
+                            Rectangle {
+                                min-height: 34px;
+                                max-height: 34px;
+                                HorizontalLayout {
+                                width: parent.width;
+                                height: parent.height;
+                                spacing: 6px;
+                                for mode[m] in ["Hệ thống", "Sáng", "Tối"] : Rectangle {
+                                    horizontal-stretch: 1;
+                                    min-height: 34px;
+                                    max-height: 34px;
+                                    border-radius: 8px;
+                                    background: root.theme-mode == m ? Theme.accent-soft : (seg-touch.has-hover ? Theme.hover : transparent);
+                                    border-width: 1px;
+                                    border-color: root.theme-mode == m ? Theme.accent : Theme.line;
+                                    accessible-role: button;
+                                    accessible-label: mode;
+                                    Text {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        text: mode;
+                                        color: root.theme-mode == m ? Theme.accent : Theme.muted;
+                                        font-size: 13px;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                    seg-touch := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { root.set-theme(m); }
+                                    }
+                                }
+                                }
+                            }
+                            Rectangle {
+                                min-height: 1px;
+                                max-height: 1px;
+                                background: Theme.line;
+                            }
+                            Rectangle {
+                                min-height: 56px;
+                                background: transparent;
+                                HorizontalLayout {
+                                    width: parent.width;
+                                    height: parent.height;
+                                    spacing: 10px;
+                                    VerticalLayout {
+                                        alignment: center;
+                                        spacing: 0;
+                                        Text { text: "Tải lời từ LRCLIB"; color: Theme.text; font-size: 14px; }
+                                        Text { text: "Chỉ tên bài, nghệ sĩ, album và thời lượng được gửi."; color: Theme.muted; font-size: 10px; overflow: elide; }
+                                    }
+                                    Rectangle { horizontal-stretch: 1; }
+                                    Rectangle {
+                                        min-width: 44px;
+                                        max-width: 44px;
+                                        accessible-role: switch;
+                                        accessible-label: "Tải lời từ LRCLIB";
+                                        Rectangle {
+                                            y: (parent.height - 24px) / 2;
+                                            height: 24px;
+                                            border-radius: 12px;
+                                            background: root.lyrics-online ? Theme.accent : Theme.line;
+                                            Rectangle {
+                                                x: root.lyrics-online ? 22px : 2px;
+                                                y: 2px;
+                                                width: 20px;
+                                                height: 20px;
+                                                border-radius: 10px;
+                                                background: root.lyrics-online ? Theme.on-accent : Theme.muted;
+                                                animate x { duration: Motion.fast; }
+                                            }
+                                            TouchArea {
+                                                mouse-cursor: pointer;
+                                                clicked => { root.set-lyrics-online(!root.lyrics-online); }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Text {
+                                text: "Lời đã tải được lưu trong thư viện và dùng được khi offline.";
+                                color: Theme.muted;
+                                font-size: 11px;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    visible: root.importing;
+                    x: 24px;
+                    y: parent.height - 60px;
+                    width: 240px;
+                    height: 40px;
+                    border-radius: 8px;
+                    background: Theme.surface;
+                    Text {
+                        x: 12px;
+                        width: parent.width - 24px;
+                        height: parent.height;
+                        text: "Đang đọc thư viện…";
+                        color: Theme.text;
+                        font-size: 13px;
+                        vertical-alignment: center;
+                    }
+                }
+                Rectangle {
+                    visible: root.has-status;
+                    x: 24px;
+                    y: parent.height - 60px;
+                    width: min(parent.width - 48px, status-text.preferred-width + 58px);
+                    height: 40px;
+                    border-radius: 8px;
+                    background: Theme.surface;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    status-text := Text {
+                        x: 12px;
+                        width: parent.width - 48px;
+                        height: parent.height;
+                        text: root.status-message;
+                        color: Theme.text;
+                        font-size: 13px;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    IconButton {
+                        x: parent.width - 38px;
+                        y: 3px;
+                        icon: Icons.close;
+                        label: "Đóng thông báo";
+                        icon-size: 12px;
+                        size: 26px;
+                        clicked => { root.dismiss-status(); }
+                    }
+                }
+            }
+
+        // Modal dialog: create / rename / delete playlist
+        Rectangle {
+            x: 0;
+            y: 0;
+            width: parent.width;
+            height: parent.height;
+            background: #000000cc;
+            visible: root.dialog-mode > 0;
+            TouchArea { }
+            Rectangle {
+                width: 380px;
+                height: 178px;
+                x: (parent.width - 380px) / 2;
+                y: (parent.height - 178px) / 2;
+                border-radius: 12px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.line;
+                VerticalLayout {
+                    width: parent.width;
+                    height: parent.height;
+                    padding: 18px;
+                    spacing: 12px;
+                    Text {
+                        text: root.dialog-title;
+                        color: Theme.text;
+                        font-size: 16px;
+                        font-weight: 600;
+                    }
+                    Rectangle {
+                        min-height: 38px;
+                        border-radius: 8px;
+                        background: Theme.bg;
+                        border-width: 1px;
+                        border-color: Theme.line;
+                        visible: root.dialog-mode < 3;
+                        TextInput {
+                            x: 10px;
+                            width: parent.width - 20px;
+                            height: parent.height;
+                            text: root.dialog-text;
+                            color: Theme.text;
+                            font-size: 14px;
+                            single-line: true;
+                            edited => { root.dialog-text = self.text; }
+                            accepted => { root.dialog-confirm(self.text); }
+                        }
+                    }
+                    Text {
+                        visible: root.dialog-mode == 3;
+                        text: "Playlist sẽ bị xóa khỏi thư viện. Tệp nhạc trên máy không bị ảnh hưởng.";
+                        color: Theme.muted;
+                        font-size: 13px;
+                        wrap: word-wrap;
+                    }
+                    Rectangle { vertical-stretch: 1; background: transparent; }
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: 8px;
+                        Rectangle {
+                            min-width: 88px;
+                            min-height: 34px;
+                            border-radius: 8px;
+                            background: cancel-touch.has-hover ? Theme.hover : transparent;
+                            accessible-role: button;
+                            accessible-label: "Hủy";
+                            Text {
+                                width: parent.width;
+                                height: parent.height;
+                                text: "Hủy";
+                                color: Theme.muted;
+                                font-size: 13px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                            cancel-touch := TouchArea { mouse-cursor: pointer; clicked => { root.dialog-cancel(); } }
+                        }
+                        Rectangle {
+                            min-width: 96px;
+                            min-height: 34px;
+                            border-radius: 8px;
+                            background: Theme.accent;
+                            accessible-role: button;
+                            accessible-label: root.dialog-mode == 3 ? "Xóa" : "Lưu";
+                            Text {
+                                width: parent.width;
+                                height: parent.height;
+                                text: root.dialog-mode == 3 ? "Xóa" : "Lưu";
+                                color: Theme.on-accent;
+                                font-size: 13px;
+                                font-weight: 600;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.dialog-confirm(root.dialog-text); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
