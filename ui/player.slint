@@ -1455,14 +1455,14 @@ export component AppWindow inherits Window {
                             y: 0;
                             width: parent.width;
                             top: true;
-                            shown: -songs-list.viewport-y > 2px;
+                            shown: -songs-list.content-y > 2px;
                         }
                         ScrollEdgeFade {
                             x: 0;
                             y: parent.height - self.height;
                             width: parent.width;
                             top: false;
-                            shown: songs-list.viewport-height + songs-list.viewport-y > songs-list.height + 2px;
+                            shown: songs-list.content-height + songs-list.content-y > songs-list.height + 2px;
                         }
                         Text {
                             x: 4px;
@@ -1508,14 +1508,14 @@ export component AppWindow inherits Window {
                                 y: 0;
                                 width: parent.width;
                                 top: true;
-                                shown: -playlists-list.viewport-y > 2px;
+                                shown: -playlists-list.content-y > 2px;
                             }
                             ScrollEdgeFade {
                                 x: 0;
                                 y: parent.height - self.height;
                                 width: parent.width;
                                 top: false;
-                                shown: playlists-list.viewport-height + playlists-list.viewport-y > playlists-list.height + 2px;
+                                shown: playlists-list.content-height + playlists-list.content-y > playlists-list.height + 2px;
                             }
                         }
                         Rectangle {
@@ -1626,14 +1626,14 @@ export component AppWindow inherits Window {
                                     y: 0;
                                     width: parent.width;
                                     top: true;
-                                    shown: -playlist-songs-list.viewport-y > 2px;
+                                    shown: -playlist-songs-list.content-y > 2px;
                                 }
                                 ScrollEdgeFade {
                                     x: 0;
                                     y: parent.height - self.height;
                                     width: parent.width;
                                     top: false;
-                                    shown: playlist-songs-list.viewport-height + playlist-songs-list.viewport-y > playlist-songs-list.height + 2px;
+                                    shown: playlist-songs-list.content-height + playlist-songs-list.content-y > playlist-songs-list.height + 2px;
                                 }
                                 Text {
                                     x: 4px;
@@ -1779,14 +1779,14 @@ export component AppWindow inherits Window {
                                 y: 0;
                                 width: parent.width;
                                 top: true;
-                                shown: -lyric-scroll.viewport-y > 2px;
+                                shown: -lyric-scroll.content-y > 2px;
                             }
                             ScrollEdgeFade {
                                 x: 0;
                                 y: parent.height - self.height;
                                 width: parent.width;
                                 top: false;
-                                shown: lyric-scroll.viewport-height + lyric-scroll.viewport-y > lyric-scroll.height + 2px;
+                                shown: lyric-scroll.content-height + lyric-scroll.content-y > lyric-scroll.height + 2px;
                             }
                             Text {
                                 x: 6px;
