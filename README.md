@@ -65,5 +65,6 @@ Test chạy không cần thiết bị âm thanh (engine có output giả lập).
 - `src/lyrics.rs` — parser LRC, tìm dòng hiện tại, nguồn local/cache/LRCLIB.
 - `src/settings.rs` — theme và bật/tắt lời online.
 - `ui/player.slint` — toàn bộ giao diện.
+- `assets/make_icon.py` — vẽ icon app (play đen trên nền trắng, viền vuông bo nhẹ) ra `puw_1024.png`, `puw.ico`, `puw.res`; `build.rs` nhúng `puw.res` vào exe. Vẽ lại: `python assets/make_icon.py assets <thư mục preview>` (cần Pillow).
 - `src/media_keys.rs` — Windows Media Controls (SMTC) qua `souvlaki`; ảnh bìa xuất PNG tạm vào `%TEMP%\puw-player`.
 - `src/main.rs` — nối UI với core, DWM, theme hệ thống, cover loader.
