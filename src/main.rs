@@ -247,7 +247,8 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
         ui.set_window_maximized(maximized);
         apply_border_style(ui, maximized);
     });
-    on!(on_window_close, |ui, _s| {
+    on!(on_window_close, |ui, s| {
+        stop_playback(ui, s);
         let _ = ui.window().hide();
     });
     on!(on_dismiss_status, |ui, s| {

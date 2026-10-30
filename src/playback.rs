@@ -203,6 +203,9 @@ pub trait AudioOutput: Send {
     fn position_ms(&self) -> u64;
     fn finished(&self) -> bool;
     fn set_volume(&mut self, volume: f32);
+    fn shutdown(&mut self) {
+        self.stop();
+    }
 }
 
 /// Transport logic with no audio dependency. The worker thread owns one and feeds it commands.
@@ -353,19 +356,26 @@ impl<O: AudioOutput> Engine<O> {
             self.snapshot.position_ms = self.clamped_position();
         }
     }
+
+    pub fn shutdown(&mut self) {
+        self.output.shutdown();
+    }
 }
 
 pub struct RodioOutput {
-    _stream: rodio::OutputStream,
-    sink: rodio::Sink,
+    stream: Option<rodio::OutputStream>,
+    sink: Option<rodio::Sink>,
     device: Option<(u32, u16)>,
     path: Option<PathBuf>,
     duration_ms: u64,
+    volume: f32,
 }
 
 impl RodioOutput {
     pub fn new() -> Result<Self, String> {
-        let mut stream = rodio::OutputStreamBuilder::open_default_stream().map_err(|e| {
+        // Query device format without starting the WASAPI stream at app launch,
+        // preventing startup DAC wake/DC-offset pops.
+        let builder = rodio::OutputStreamBuilder::from_default_device().map_err(|e| {
             format!(
                 "{} {e}",
                 tr(
@@ -374,17 +384,59 @@ impl RodioOutput {
                 )
             )
         })?;
-        stream.log_on_drop(false);
-        let config = stream.config();
-        let device = Some((config.sample_rate(), config.channel_count()));
-        let sink = rodio::Sink::connect_new(stream.mixer());
+        use rodio::cpal::traits::{DeviceTrait, HostTrait};
+        let device = rodio::cpal::default_host()
+            .default_output_device()
+            .and_then(|d| d.default_output_config().ok())
+            .map(|cfg| (cfg.sample_rate().0, cfg.channels()));
+        let _ = builder;
         Ok(Self {
-            _stream: stream,
-            sink,
+            stream: None,
+            sink: None,
             device,
             path: None,
             duration_ms: 0,
+            volume: 1.0,
         })
+    }
+
+    fn ensure_stream(&mut self) -> Result<&rodio::OutputStream, String> {
+        if self.stream.is_none() {
+            let mut stream = rodio::OutputStreamBuilder::open_default_stream().map_err(|e| {
+                format!(
+                    "{} {e}",
+                    tr(
+                        "Không mở được thiết bị âm thanh:",
+                        "Could not open the audio device:"
+                    )
+                )
+            })?;
+            stream.log_on_drop(false);
+            let cfg = stream.config();
+            self.device = Some((cfg.sample_rate(), cfg.channel_count()));
+            // Keep a silent Zero source attached so the mixer stays warm with continuous 0.0 samples.
+            stream
+                .mixer()
+                .add(rodio::source::Zero::new(cfg.channel_count(), cfg.sample_rate()));
+            std::thread::sleep(Duration::from_millis(15));
+            self.stream = Some(stream);
+        }
+        Ok(self.stream.as_ref().expect("stream initialized"))
+    }
+
+    fn silence_and_drop_sink(&mut self) {
+        if let Some(sink) = self.sink.take() {
+            if !sink.empty() && !sink.is_paused() {
+                let current = sink.volume();
+                sink.set_volume(current * 0.3);
+                std::thread::sleep(Duration::from_millis(8));
+                sink.set_volume(0.0);
+                std::thread::sleep(Duration::from_millis(20));
+            } else {
+                sink.set_volume(0.0);
+            }
+            sink.stop();
+        }
     }
 
     fn open_decoder(
@@ -418,21 +470,31 @@ impl AudioOutput for RodioOutput {
             .filter(|ms| *ms > 0)
             .or_else(|| inspect_audio(path).ok().map(|t| t.duration_ms()))
             .unwrap_or(0);
-        let sink = rodio::Sink::connect_new(self._stream.mixer());
-        sink.append(decoder);
-        self.sink = sink;
+        self.silence_and_drop_sink();
+        let volume = self.volume;
+        let stream = self.ensure_stream()?;
+        let sink = rodio::Sink::connect_new(stream.mixer());
+        sink.pause();
+        sink.set_volume(volume);
+        sink.append(decoder.fade_in(Duration::from_millis(25)));
+        self.sink = Some(sink);
         self.path = Some(path.to_path_buf());
         self.duration_ms = duration_ms;
         Ok(duration_ms)
     }
     fn play(&mut self) {
-        self.sink.play();
+        if let Some(sink) = &self.sink {
+            sink.set_volume(self.volume);
+            sink.play();
+        }
     }
     fn pause(&mut self) {
-        self.sink.pause();
+        if let Some(sink) = &self.sink {
+            sink.pause();
+        }
     }
     fn stop(&mut self) {
-        self.sink.stop();
+        self.silence_and_drop_sink();
     }
     fn seek(&mut self, position_ms: u64) -> Result<(), String> {
         // Keep a small margin before EOF so Symphonia does not reject seeks right at the end.
@@ -442,47 +504,67 @@ impl AudioOutput for RodioOutput {
             position_ms
         };
         let target = Duration::from_millis(safe_ms);
-        if self.sink.empty()
+        if self.sink.as_ref().is_none_or(|s| s.empty())
             && let Some(path) = self.path.clone()
         {
-            let volume = self.sink.volume();
+            use rodio::Source;
             let decoder = Self::open_decoder(&path)?;
-            let sink = rodio::Sink::connect_new(self._stream.mixer());
-            sink.set_volume(volume);
+            let volume = self.volume;
+            let stream = self.ensure_stream()?;
+            let sink = rodio::Sink::connect_new(stream.mixer());
             sink.pause();
-            sink.append(decoder);
-            self.sink = sink;
+            sink.set_volume(volume);
+            sink.append(decoder.fade_in(Duration::from_millis(20)));
+            self.sink = Some(sink);
         }
-        if self.sink.try_seek(target).is_ok() {
+        if let Some(sink) = &self.sink
+            && sink.try_seek(target).is_ok()
+        {
             return Ok(());
         }
         // Fallback: if the stream could not seek in-place, reopen and seek forward from start.
         if let Some(path) = self.path.clone() {
-            let paused = self.sink.is_paused();
-            let volume = self.sink.volume();
+            use rodio::Source;
+            let paused = self.sink.as_ref().is_none_or(|s| s.is_paused());
+            self.silence_and_drop_sink();
+            let volume = self.volume;
             let decoder = Self::open_decoder(&path)?;
-            let sink = rodio::Sink::connect_new(self._stream.mixer());
+            let stream = self.ensure_stream()?;
+            let sink = rodio::Sink::connect_new(stream.mixer());
             sink.set_volume(volume);
             if paused {
                 sink.pause();
             }
-            sink.append(decoder);
-            self.sink = sink;
-            return self
-                .sink
+            sink.append(decoder.fade_in(Duration::from_millis(20)));
+            let res = sink
                 .try_seek(target)
                 .map_err(|e| format!("{} {e}", tr("Không tua được:", "Could not seek:")));
+            self.sink = Some(sink);
+            return res;
         }
         Err(tr("Không tua được", "Could not seek").into())
     }
     fn position_ms(&self) -> u64 {
-        self.sink.get_pos().as_millis() as u64
+        self.sink
+            .as_ref()
+            .map(|s| s.get_pos().as_millis() as u64)
+            .unwrap_or(0)
     }
     fn finished(&self) -> bool {
-        self.sink.empty()
+        self.sink.as_ref().is_none_or(|s| s.empty())
     }
     fn set_volume(&mut self, volume: f32) {
-        self.sink.set_volume(volume);
+        self.volume = volume;
+        if let Some(sink) = &self.sink {
+            sink.set_volume(volume);
+        }
+    }
+    fn shutdown(&mut self) {
+        self.silence_and_drop_sink();
+        if self.stream.is_some() {
+            std::thread::sleep(Duration::from_millis(25));
+            self.stream = None;
+        }
     }
 }
 
@@ -600,7 +682,10 @@ fn run_worker<O: AudioOutput>(
         let mut batch = Vec::new();
         match rx.recv_timeout(Duration::from_millis(50)) {
             Ok(Message::Command(command)) => batch.push(command),
-            Ok(Message::Shutdown) | Err(RecvTimeoutError::Disconnected) => break,
+            Ok(Message::Shutdown) | Err(RecvTimeoutError::Disconnected) => {
+                engine.shutdown();
+                break;
+            }
             Err(RecvTimeoutError::Timeout) => {}
         }
         while let Ok(msg) = rx.try_recv() {
@@ -617,7 +702,10 @@ fn run_worker<O: AudioOutput>(
                         _ => batch.push(cmd),
                     }
                 }
-                Message::Shutdown => return,
+                Message::Shutdown => {
+                    engine.shutdown();
+                    return;
+                }
             }
         }
         for command in batch {
