@@ -69,6 +69,7 @@ fn settings_and_lyric_offset_survive_reopen() {
     lib.save_settings(&Settings {
         theme: Theme::Dark,
         lyrics_online: true,
+        english: true,
     })
     .unwrap();
     lib.set_lyric_offset(id, 250).unwrap();
@@ -78,7 +79,8 @@ fn settings_and_lyric_offset_survive_reopen() {
         lib.settings().unwrap(),
         Settings {
             theme: Theme::Dark,
-            lyrics_online: true
+            lyrics_online: true,
+            english: true,
         }
     );
     assert_eq!(lib.lyric_offset(id).unwrap(), 250);

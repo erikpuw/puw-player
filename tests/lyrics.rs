@@ -141,7 +141,11 @@ fn online_fetch_sends_app_agent_and_caches_result() {
     assert_eq!(resolved.lines[1].text, "Trên phố");
     assert_eq!(active_line(&resolved.lines, 4_500, 0), Some(1));
     let hits = server.hits();
-    assert!(hits[0].0.starts_with("/api/get?"));
+    assert!(
+        hits[0].0.starts_with("/api/get-cached?"),
+        "cache endpoint first: {:?}",
+        hits[0].0
+    );
     assert!(hits[0].0.contains("track_name=Sau+c%C6%A1n+m%C6%B0a"));
     assert!(
         hits[0].1.contains("PuwPlayer"),
@@ -181,7 +185,10 @@ fn search_fallback_matches_title_artist_and_duration() {
         .resolve(&request(1, 1, dir.path()), &mut store, true)
         .unwrap();
     assert_eq!(resolved.lines[0].text, "đúng");
-    assert!(server.hits()[1].0.starts_with("/api/search?"));
+    let hits = server.hits();
+    assert!(hits[0].0.starts_with("/api/get-cached?"));
+    assert!(hits[1].0.starts_with("/api/get?"));
+    assert!(hits[2].0.starts_with("/api/search?"));
 }
 
 #[test]
@@ -212,6 +219,39 @@ fn not_found_and_instrumental_are_reported() {
 }
 
 #[test]
+fn busy_lookup_falls_back_to_search_with_cleaned_title() {
+    let found = r#"[{"id":7,"trackName":"Sau cơn mưa","artistName":"An Nhiên","duration":280.0,"instrumental":false,"plainLyrics":"x","syncedLyrics":"[00:03.00]tìm thấy"}]"#;
+    let server = MockServer::start(Duration::ZERO, move |target, _| {
+        if target.starts_with("/api/get") {
+            (
+                503,
+                vec![],
+                r#"{"message":"The server is busy, please retry in a moment"}"#.into(),
+            )
+        } else {
+            (200, vec![], found.into())
+        }
+    });
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = MemoryStore::default();
+    let resolver = LyricsResolver::with_endpoint(&server.base, Duration::from_secs(2));
+    let mut noisy = request(8, 1, dir.path());
+    noisy.title = "Sau cơn mưa (Official MV) ft. Ai Đó";
+    let resolved = resolver.resolve(&noisy, &mut store, true).unwrap();
+    assert_eq!(resolved.lines[0].text, "tìm thấy");
+    let search = server
+        .hits()
+        .into_iter()
+        .find(|(target, _)| target.starts_with("/api/search?"))
+        .unwrap();
+    assert!(
+        search.0.contains("track_name=Sau+c%C6%A1n+m%C6%B0a&"),
+        "title must be cleaned: {}",
+        search.0
+    );
+}
+
+#[test]
 fn transient_server_error_is_retried_once() {
     let dir = tempfile::tempdir().unwrap();
     let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
@@ -236,7 +276,7 @@ fn transient_server_error_is_retried_once() {
     let error = resolver
         .resolve(&request(6, 1, dir.path()), &mut store, true)
         .unwrap_err();
-    assert!(error.contains("tạm thời"), "{error}");
+    assert!(error.contains("đang bận"), "{error}");
 }
 
 #[test]
@@ -318,4 +358,31 @@ fn stale_responses_are_detected() {
     assert!(fresh.is_current(2, 8));
     assert!(!fresh.is_current(1, 8));
     assert!(!fresh.is_current(2, 7));
+}
+
+/// Network: `cargo test --no-default-features --test lyrics lrclib_live -- --ignored --nocapture`
+#[test]
+#[ignore]
+fn lrclib_live() {
+    let dir = tempfile::tempdir().unwrap();
+    let resolver = LyricsResolver::default();
+    for (title, artist, duration_ms) in [
+        ("Faded", "Alan Walker", 212_000),
+        ("Lạc Trôi (Official MV)", "Sơn Tùng M-TP", 233_000),
+    ] {
+        let request = LyricsRequest {
+            track_id: 1,
+            generation: 1,
+            path: dir.path().join("x.mp3"),
+            title,
+            artist,
+            album: "",
+            duration_ms,
+        };
+        let mut store = MemoryStore::default();
+        match resolver.resolve(&request, &mut store, true) {
+            Ok(found) => println!("{title}: {} lines from {}", found.lines.len(), found.source),
+            Err(error) => println!("{title}: {error}"),
+        }
+    }
 }

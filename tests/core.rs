@@ -1,5 +1,6 @@
 use puw_player::{
     artwork::fit_cover,
+    i18n,
     lyrics::{active_line, parse_lrc},
     queue::{Queue, RepeatMode},
 };
@@ -77,4 +78,13 @@ fn lyrics_parse_multiple_times_offset_and_malformed_lines() {
     assert_eq!(active_line(&lines, 2200, -200), Some(0));
     assert_eq!(active_line(&lines, 3700, 0), Some(3));
     assert_eq!(active_line(&lines, 1200, 0), Some(0));
+}
+
+#[test]
+fn interface_language_switches_text() {
+    i18n::set_english(false);
+    assert_eq!(i18n::tr("Nhạc", "Music"), "Nhạc");
+    i18n::set_english(true);
+    assert_eq!(i18n::tr("Nhạc", "Music"), "Music");
+    i18n::set_english(false);
 }

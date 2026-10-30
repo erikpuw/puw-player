@@ -1,5 +1,6 @@
 //! Core state and storage for Puw Player. Independent of the window system.
 pub mod artwork;
+pub mod i18n;
 pub mod library;
 pub mod lyrics;
 pub mod playback;

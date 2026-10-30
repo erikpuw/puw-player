@@ -9,6 +9,7 @@ use souvlaki::{
     MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig,
 };
 
+use puw_player::i18n::tr;
 use puw_player::library::Track;
 
 /// Position drift beyond this (a seek, a stall) is re-published; normal playback is
@@ -130,7 +131,10 @@ impl SystemMedia {
             .as_ref()
             .map(|path| format!("file://{}", path.display()));
         let _ = controls.set_metadata(MediaMetadata {
-            title: Some(non_empty(&track.title, "Không rõ tên bài")),
+            title: Some(non_empty(
+                &track.title,
+                tr("Không rõ tên bài", "Unknown title"),
+            )),
             artist: Some(&track.artist)
                 .filter(|a| !a.is_empty())
                 .map(String::as_str),

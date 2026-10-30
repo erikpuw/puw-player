@@ -36,6 +36,14 @@ export global Theme {
     in-out property <bool> dark: true;
 }
 
+// Interface language. Rust flips `en` from Settings; every label binds through `t`.
+export global I18n {
+    in-out property <bool> en: false;
+    pure public function t(vi: string, eng: string) -> string {
+        return self.en ? eng : vi;
+    }
+}
+
 export global Motion {
     in-out property <duration> fast: 140ms;
     in-out property <duration> slow: 240ms;
@@ -266,7 +274,7 @@ component Timeline inherits Rectangle {
     callback seek-to(float);
     min-height: 28px;
     accessible-role: slider;
-    accessible-label: "Tiến trình bài hát";
+    accessible-label: I18n.t("Tiến trình bài hát", "Track progress");
     property <float> ratio: duration > 0 ? min(1, max(0, position / duration)) : 0;
     Rectangle {
         y: (parent.height - 4px) / 2;
@@ -310,7 +318,7 @@ component VolumeSlider inherits Rectangle {
     callback set-volume(float);
     min-height: 26px;
     accessible-role: slider;
-    accessible-label: "Âm lượng";
+    accessible-label: I18n.t("Âm lượng", "Volume");
     Rectangle {
         y: (parent.height - 4px) / 2;
         height: 4px;
@@ -441,7 +449,7 @@ component TrackListItem inherits Rectangle {
         y: parent.height - 34px;
         width: parent.width - 76px - 74px;
         height: 20px;
-        text: root.missing ? "Không tìm thấy tệp" : root.artist;
+        text: root.missing ? I18n.t("Không tìm thấy tệp", "File not found") : root.artist;
         color: Theme.muted;
         font-size: 13px;
         vertical-alignment: center;
@@ -593,8 +601,8 @@ export component AppWindow inherits Window {
     in-out property <bool> has-status;
     in-out property <bool> importing;
 
-    in-out property <string> now-title: "Chưa chọn bài";
-    in-out property <string> now-artist: "Chọn một bài hát để bắt đầu";
+    in-out property <string> now-title: I18n.t("Chưa chọn bài", "No track selected");
+    in-out property <string> now-artist: I18n.t("Chọn một bài hát để bắt đầu", "Pick a song to start");
     in-out property <string> now-source: "";
     in-out property <string> now-device: "";
     in-out property <image> cover;
@@ -660,6 +668,7 @@ export component AppWindow inherits Window {
     callback toggle-lyrics();
     callback toggle-settings();
     callback set-theme(int);
+    callback set-language(bool);
     callback set-lyrics-online(bool);
     callback lyric-click(int);
     callback lyric-offset-step(int);
@@ -772,7 +781,7 @@ export component AppWindow inherits Window {
                         alignment: end;
                         IconButton {
                             icon: Icons.plus;
-                            label: "Thêm nhạc";
+                            label: I18n.t("Thêm nhạc", "Add music");
                             active: root.add-menu-visible;
                             clicked => { root.add-menu-visible = !root.add-menu-visible; }
                         }
@@ -784,32 +793,32 @@ export component AppWindow inherits Window {
                         }
                         IconButton {
                             icon: Icons.lyrics;
-                            label: "Lời bài hát";
+                            label: I18n.t("Lời bài hát", "Lyrics");
                             active: root.lyrics-visible;
                             clicked => { root.toggle-lyrics(); }
                         }
                         IconButton {
                             icon: Icons.settings;
-                            label: "Cài đặt";
+                            label: I18n.t("Cài đặt", "Settings");
                             active: root.settings-visible;
                             clicked => { root.toggle-settings(); }
                         }
                         VDivider { line-height: 22px; }
                         IconButton {
                             icon: Icons.minimize;
-                            label: "Thu nhỏ";
+                            label: I18n.t("Thu nhỏ", "Minimize");
                             icon-size: 16px;
                             clicked => { root.window-minimize(); }
                         }
                         IconButton {
                             icon: root.window-maximized ? Icons.restore : Icons.maximize;
-                            label: root.window-maximized ? "Khôi phục" : "Phóng to";
+                            label: root.window-maximized ? I18n.t("Khôi phục", "Restore") : I18n.t("Phóng to", "Maximize");
                             icon-size: 15px;
                             clicked => { root.window-maximize(); }
                         }
                         IconButton {
                             icon: Icons.close;
-                            label: "Đóng";
+                            label: I18n.t("Đóng", "Close");
                             icon-size: 15px;
                             clicked => { root.window-close(); }
                         }
@@ -839,7 +848,7 @@ export component AppWindow inherits Window {
                                 x: 10px;
                                 width: parent.width - 20px;
                                 height: parent.height;
-                                text: "Thêm tệp nhạc…";
+                                text: I18n.t("Thêm tệp nhạc…", "Add music files…");
                                 color: Theme.text;
                                 font-size: 14px;
                                 vertical-alignment: center;
@@ -857,7 +866,7 @@ export component AppWindow inherits Window {
                                 x: 10px;
                                 width: parent.width - 20px;
                                 height: parent.height;
-                                text: "Thêm thư mục…";
+                                text: I18n.t("Thêm thư mục…", "Add folder…");
                                 color: Theme.text;
                                 font-size: 14px;
                                 vertical-alignment: center;
@@ -921,7 +930,7 @@ export component AppWindow inherits Window {
                                     tint: Theme.line;
                                 }
                                 Text {
-                                    text: root.has-track ? "Không có bìa" : "Chưa chọn bài";
+                                    text: root.has-track ? I18n.t("Không có bìa", "No artwork") : I18n.t("Chưa chọn bài", "No track selected");
                                     color: Theme.muted;
                                     font-size: 13px;
                                     horizontal-alignment: center;
@@ -1002,7 +1011,7 @@ export component AppWindow inherits Window {
 
                         IconButton {
                             icon: Icons.shuffle;
-                            label: "Phát ngẫu nhiên";
+                            label: I18n.t("Phát ngẫu nhiên", "Shuffle");
                             size: 46px;
                             icon-size: 26px;
                             weight: 2.2px;
@@ -1014,7 +1023,7 @@ export component AppWindow inherits Window {
                         IconButton {
                             icon: Icons.skip-back;
                             badge: "10";
-                            label: "Lùi 10 giây";
+                            label: I18n.t("Lùi 10 giây", "Back 10 seconds");
                             size: 46px;
                             icon-size: 32px;
                             weight: 2px;
@@ -1024,7 +1033,7 @@ export component AppWindow inherits Window {
                         }
                         IconButton {
                             icon: Icons.previous;
-                            label: "Bài trước";
+                            label: I18n.t("Bài trước", "Previous");
                             size: 52px;
                             icon-size: 24px;
                             filled-icon: true;
@@ -1041,7 +1050,7 @@ export component AppWindow inherits Window {
                             background: Theme.accent;
                             opacity: root.has-track ? 1 : 0.45;
                             accessible-role: button;
-                            accessible-label: root.playing ? "Tạm dừng" : "Phát";
+                            accessible-label: root.playing ? I18n.t("Tạm dừng", "Pause") : I18n.t("Phát", "Play");
                             PlayPauseMorph {
                                 x: 20px;
                                 y: 20px;
@@ -1055,7 +1064,7 @@ export component AppWindow inherits Window {
                         }
                         IconButton {
                             icon: Icons.next;
-                            label: "Bài tiếp theo";
+                            label: I18n.t("Bài tiếp theo", "Next");
                             size: 52px;
                             icon-size: 24px;
                             filled-icon: true;
@@ -1066,7 +1075,7 @@ export component AppWindow inherits Window {
                         IconButton {
                             icon: Icons.skip-forward;
                             badge: "10";
-                            label: "Tiến 10 giây";
+                            label: I18n.t("Tiến 10 giây", "Forward 10 seconds");
                             size: 46px;
                             icon-size: 32px;
                             weight: 2px;
@@ -1077,7 +1086,7 @@ export component AppWindow inherits Window {
                         // Icon alone shows the mode: grey = off, accent = all, accent + "1" = one track.
                         IconButton {
                             icon: Icons.repeat;
-                            label: root.repeat-mode == 0 ? "Lặp: tắt" : (root.repeat-mode == 1 ? "Lặp: tất cả" : "Lặp: một bài");
+                            label: root.repeat-mode == 0 ? I18n.t("Lặp: tắt", "Repeat: off") : (root.repeat-mode == 1 ? I18n.t("Lặp: tất cả", "Repeat: all") : I18n.t("Lặp: một bài", "Repeat: one track"));
                             size: 46px;
                             icon-size: 28px;
                             weight: 2.2px;
@@ -1100,7 +1109,7 @@ export component AppWindow inherits Window {
                         spacing: 14px;
                         IconButton {
                             icon: Icons.stop;
-                            label: "Dừng";
+                            label: I18n.t("Dừng", "Stop");
                             size: 42px;
                             icon-size: 18px;
                             filled-icon: true;
@@ -1168,7 +1177,7 @@ export component AppWindow inherits Window {
                             height: parent.height;
                             spacing: 22px;
                             TabHeader {
-                                text: "Bài hát";
+                                text: I18n.t("Bài hát", "Songs");
                                 selected: root.tab == 0;
                                 clicked => { root.tab = 0; }
                             }
@@ -1181,11 +1190,11 @@ export component AppWindow inherits Window {
                             IconButton {
                                 visible: root.tab == 1;
                                 icon: Icons.plus;
-                                label: "Tạo playlist";
+                                label: I18n.t("Tạo playlist", "New playlist");
                                 icon-size: 16px;
                                 clicked => {
                                     root.dialog-mode = 1;
-                                    root.dialog-title = "Playlist mới";
+                                    root.dialog-title = I18n.t("Playlist mới", "New playlist");
                                     root.dialog-text = "";
                                 }
                             }
@@ -1213,7 +1222,7 @@ export component AppWindow inherits Window {
                                 current: root.current-track == i;
                                 selected: root.selected-track == i;
                                 action-icon: Icons.plus;
-                                action-label: "Thêm vào playlist";
+                                action-label: I18n.t("Thêm vào playlist", "Add to playlist");
                                 action => { root.picker-track = i; }
                                 activate => {
                                     root.selected-track = i;
@@ -1225,7 +1234,7 @@ export component AppWindow inherits Window {
                             x: 4px;
                             y: 14px;
                             width: parent.width - 8px;
-                            text: "Chưa có bài hát. Thêm tệp hoặc thư mục ở góc trên.";
+                            text: I18n.t("Chưa có bài hát. Thêm tệp hoặc thư mục ở góc trên.", "No songs yet. Add files or a folder with the + button at the top.");
                             visible: root.tracks.length == 0;
                             wrap: word-wrap;
                             color: Theme.muted;
@@ -1306,27 +1315,27 @@ export component AppWindow inherits Window {
                                     IconButton {
                                         icon: Icons.play;
                                         filled-icon: true;
-                                        label: "Phát playlist";
+                                        label: I18n.t("Phát playlist", "Play playlist");
                                         icon-size: 14px;
                                         clicked => { root.play-playlist(); }
                                     }
                                     IconButton {
                                         icon: Icons.pencil;
-                                        label: "Đổi tên playlist";
+                                        label: I18n.t("Đổi tên playlist", "Rename playlist");
                                         icon-size: 14px;
                                         clicked => {
                                             root.dialog-mode = 2;
-                                            root.dialog-title = "Đổi tên playlist";
+                                            root.dialog-title = I18n.t("Đổi tên playlist", "Rename playlist");
                                             root.dialog-text = root.current-playlist-name;
                                         }
                                     }
                                     IconButton {
                                         icon: Icons.trash;
-                                        label: "Xóa playlist";
+                                        label: I18n.t("Xóa playlist", "Delete playlist");
                                         icon-size: 15px;
                                         clicked => {
                                             root.dialog-mode = 3;
-                                            root.dialog-title = "Xóa playlist này?";
+                                            root.dialog-title = I18n.t("Xóa playlist này?", "Delete this playlist?");
                                             root.dialog-text = "";
                                         }
                                     }
@@ -1359,7 +1368,7 @@ export component AppWindow inherits Window {
                                         current: root.current-playlist-track == ti;
                                         selected: false;
                                         action-icon: Icons.trash;
-                                        action-label: "Bỏ khỏi playlist";
+                                        action-label: I18n.t("Bỏ khỏi playlist", "Remove from playlist");
                                         action => { root.remove-playlist-track(ti); }
                                         activate => { root.activate-track(ti); }
                                     }
@@ -1368,7 +1377,7 @@ export component AppWindow inherits Window {
                                     x: 4px;
                                     y: 10px;
                                     width: parent.width - 8px;
-                                    text: "Playlist trống.";
+                                    text: I18n.t("Playlist trống.", "This playlist is empty.");
                                     visible: root.playlist-tracks.length == 0;
                                     color: Theme.muted;
                                     font-size: 13px;
@@ -1380,7 +1389,7 @@ export component AppWindow inherits Window {
                             x: parent.width * 0.32 + 12px;
                             y: 20px;
                             width: parent.width * 0.68 - 12px;
-                            text: "Chọn một playlist bên trái.";
+                            text: I18n.t("Chọn một playlist bên trái.", "Pick a playlist on the left.");
                             color: Theme.muted;
                             font-size: 13px;
                         }
@@ -1406,7 +1415,7 @@ export component AppWindow inherits Window {
                                 height: parent.height;
                                 spacing: 6px;
                                 Text {
-                                    text: "Lời bài hát";
+                                    text: I18n.t("Lời bài hát", "Lyrics");
                                     color: Theme.text;
                                     font-size: 15px;
                                     font-weight: 600;
@@ -1421,14 +1430,14 @@ export component AppWindow inherits Window {
                                 }
                                 IconButton {
                                     icon: Icons.minimize;
-                                    label: "Dời lời muộn hơn 0,5 giây";
+                                    label: I18n.t("Dời lời muộn hơn 0,5 giây", "Shift lyrics 0.5 s later");
                                     icon-size: 12px;
                                     size: 24px;
                                     clicked => { root.lyric-offset-step(-1); }
                                 }
                                 IconButton {
                                     icon: Icons.plus;
-                                    label: "Dời lời sớm hơn 0,5 giây";
+                                    label: I18n.t("Dời lời sớm hơn 0,5 giây", "Shift lyrics 0.5 s earlier");
                                     icon-size: 12px;
                                     size: 24px;
                                     clicked => { root.lyric-offset-step(1); }
@@ -1437,7 +1446,7 @@ export component AppWindow inherits Window {
                                     min-width: 86px;
                                     max-width: 86px;
                                     accessible-role: button;
-                                    accessible-label: "Theo bài hát";
+                                    accessible-label: I18n.t("Theo bài hát", "Follow song");
                                     Rectangle {
                                         y: (parent.height - 24px) / 2;
                                         height: 24px;
@@ -1448,7 +1457,7 @@ export component AppWindow inherits Window {
                                         Text {
                                             width: parent.width;
                                             height: parent.height;
-                                            text: "Theo bài hát";
+                                            text: I18n.t("Theo bài hát", "Follow song");
                                             color: root.following ? Theme.accent : Theme.muted;
                                             font-size: 10px;
                                             horizontal-alignment: center;
@@ -1538,7 +1547,7 @@ export component AppWindow inherits Window {
                                     width: parent.width;
                                     height: parent.height;
                                     Text {
-                                        text: "Cài đặt";
+                                        text: I18n.t("Cài đặt", "Settings");
                                         color: Theme.text;
                                         font-size: 17px;
                                         font-weight: 600;
@@ -1547,13 +1556,13 @@ export component AppWindow inherits Window {
                                     Rectangle { horizontal-stretch: 1; }
                                     IconButton {
                                         icon: Icons.close;
-                                        label: "Đóng cài đặt";
+                                        label: I18n.t("Đóng cài đặt", "Close settings");
                                         icon-size: 14px;
                                         clicked => { root.toggle-settings(); }
                                     }
                                 }
                             }
-                            Text { text: "Giao diện"; color: Theme.muted; font-size: 12px; }
+                            Text { text: I18n.t("Giao diện", "Appearance"); color: Theme.muted; font-size: 12px; }
                             Rectangle {
                                 min-height: 34px;
                                 max-height: 34px;
@@ -1561,7 +1570,7 @@ export component AppWindow inherits Window {
                                 width: parent.width;
                                 height: parent.height;
                                 spacing: 6px;
-                                for mode[m] in ["Hệ thống", "Sáng", "Tối"] : Rectangle {
+                                for mode[m] in [I18n.t("Hệ thống", "System"), I18n.t("Sáng", "Light"), I18n.t("Tối", "Dark")] : Rectangle {
                                     horizontal-stretch: 1;
                                     min-height: 34px;
                                     max-height: 34px;
@@ -1587,6 +1596,42 @@ export component AppWindow inherits Window {
                                 }
                                 }
                             }
+                            // Language names stay in their own language so either is findable.
+                            Text { text: I18n.t("Ngôn ngữ", "Language"); color: Theme.muted; font-size: 12px; }
+                            Rectangle {
+                                min-height: 34px;
+                                max-height: 34px;
+                                HorizontalLayout {
+                                width: parent.width;
+                                height: parent.height;
+                                spacing: 6px;
+                                for lang[li] in ["Tiếng Việt", "English"] : Rectangle {
+                                    property <bool> chosen: (li == 1) == I18n.en;
+                                    horizontal-stretch: 1;
+                                    min-height: 34px;
+                                    max-height: 34px;
+                                    border-radius: 8px;
+                                    background: self.chosen ? Theme.accent-soft : (lang-touch.has-hover ? Theme.hover : transparent);
+                                    border-width: 1px;
+                                    border-color: self.chosen ? Theme.accent : Theme.line;
+                                    accessible-role: button;
+                                    accessible-label: lang;
+                                    Text {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        text: lang;
+                                        color: parent.chosen ? Theme.accent : Theme.muted;
+                                        font-size: 13px;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                    lang-touch := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { root.set-language(li == 1); }
+                                    }
+                                }
+                                }
+                            }
                             Rectangle {
                                 min-height: 1px;
                                 max-height: 1px;
@@ -1602,15 +1647,15 @@ export component AppWindow inherits Window {
                                     VerticalLayout {
                                         alignment: center;
                                         spacing: 0;
-                                        Text { text: "Tải lời từ LRCLIB"; color: Theme.text; font-size: 14px; }
-                                        Text { text: "Chỉ tên bài, nghệ sĩ, album và thời lượng được gửi."; color: Theme.muted; font-size: 10px; overflow: elide; }
+                                        Text { text: I18n.t("Tải lời từ LRCLIB", "Fetch lyrics from LRCLIB"); color: Theme.text; font-size: 14px; }
+                                        Text { text: I18n.t("Chỉ tên bài, nghệ sĩ, album và thời lượng được gửi.", "Only title, artist, album and duration are sent."); color: Theme.muted; font-size: 10px; overflow: elide; }
                                     }
                                     Rectangle { horizontal-stretch: 1; }
                                     Rectangle {
                                         min-width: 44px;
                                         max-width: 44px;
                                         accessible-role: switch;
-                                        accessible-label: "Tải lời từ LRCLIB";
+                                        accessible-label: I18n.t("Tải lời từ LRCLIB", "Fetch lyrics from LRCLIB");
                                         Rectangle {
                                             y: (parent.height - 24px) / 2;
                                             height: 24px;
@@ -1634,7 +1679,7 @@ export component AppWindow inherits Window {
                                 }
                             }
                             Text {
-                                text: "Lời đã tải được lưu trong thư viện và dùng được khi offline.";
+                                text: I18n.t("Lời đã tải được lưu trong thư viện và dùng được khi offline.", "Downloaded lyrics are saved in the library and work offline.");
                                 color: Theme.muted;
                                 font-size: 11px;
                                 wrap: word-wrap;
@@ -1656,7 +1701,7 @@ export component AppWindow inherits Window {
                         x: 12px;
                         width: parent.width - 24px;
                         height: parent.height;
-                        text: "Đang đọc thư viện…";
+                        text: I18n.t("Đang đọc thư viện…", "Reading library…");
                         color: Theme.text;
                         font-size: 13px;
                         vertical-alignment: center;
@@ -1686,7 +1731,7 @@ export component AppWindow inherits Window {
                         x: parent.width - 38px;
                         y: 3px;
                         icon: Icons.close;
-                        label: "Đóng thông báo";
+                        label: I18n.t("Đóng thông báo", "Dismiss");
                         icon-size: 12px;
                         size: 26px;
                         clicked => { root.dismiss-status(); }
@@ -1720,7 +1765,7 @@ export component AppWindow inherits Window {
                     padding: 14px;
                     spacing: 4px;
                     Text {
-                        text: "Thêm vào playlist";
+                        text: I18n.t("Thêm vào playlist", "Add to playlist");
                         color: Theme.text;
                         font-size: 16px;
                         font-weight: 600;
@@ -1728,7 +1773,7 @@ export component AppWindow inherits Window {
                         vertical-alignment: center;
                     }
                     if root.playlists.length == 0: Text {
-                        text: "Chưa có playlist nào.";
+                        text: I18n.t("Chưa có playlist nào.", "No playlists yet.");
                         color: Theme.muted;
                         font-size: 13px;
                         height: 30px;
@@ -1783,7 +1828,7 @@ export component AppWindow inherits Window {
                         border-radius: 8px;
                         background: new-touch.has-hover ? Theme.accent-soft : transparent;
                         accessible-role: button;
-                        accessible-label: "Tạo playlist mới";
+                        accessible-label: I18n.t("Tạo playlist mới", "Create new playlist");
                         Glyph {
                             x: 16px;
                             y: (parent.height - 18px) / 2;
@@ -1797,7 +1842,7 @@ export component AppWindow inherits Window {
                             x: 54px;
                             width: parent.width - 60px;
                             height: parent.height;
-                            text: "Tạo playlist mới…";
+                            text: I18n.t("Tạo playlist mới…", "New playlist…");
                             color: Theme.accent;
                             font-size: 14px;
                             vertical-alignment: center;
@@ -1807,7 +1852,7 @@ export component AppWindow inherits Window {
                             mouse-cursor: pointer;
                             clicked => {
                                 root.dialog-mode = 1;
-                                root.dialog-title = "Playlist mới";
+                                root.dialog-title = I18n.t("Playlist mới", "New playlist");
                                 root.dialog-text = "";
                             }
                         }
@@ -1869,7 +1914,7 @@ export component AppWindow inherits Window {
                         }
                     }
                     if root.dialog-mode == 3: Text {
-                        text: "Playlist sẽ bị xóa khỏi thư viện. Tệp nhạc trên máy không bị ảnh hưởng.";
+                        text: I18n.t("Playlist sẽ bị xóa khỏi thư viện. Tệp nhạc trên máy không bị ảnh hưởng.", "The playlist will be removed from the library. Music files on disk are not affected.");
                         color: Theme.muted;
                         font-size: 13px;
                         wrap: word-wrap;
@@ -1883,11 +1928,11 @@ export component AppWindow inherits Window {
                             border-radius: 8px;
                             background: cancel-touch.has-hover ? Theme.hover : transparent;
                             accessible-role: button;
-                            accessible-label: "Hủy";
+                            accessible-label: I18n.t("Hủy", "Cancel");
                             Text {
                                 width: parent.width;
                                 height: parent.height;
-                                text: "Hủy";
+                                text: I18n.t("Hủy", "Cancel");
                                 color: Theme.muted;
                                 font-size: 13px;
                                 horizontal-alignment: center;
@@ -1901,11 +1946,11 @@ export component AppWindow inherits Window {
                             border-radius: 8px;
                             background: Theme.accent;
                             accessible-role: button;
-                            accessible-label: root.dialog-mode == 3 ? "Xóa" : "Lưu";
+                            accessible-label: root.dialog-mode == 3 ? I18n.t("Xóa", "Delete") : I18n.t("Lưu", "Save");
                             Text {
                                 width: parent.width;
                                 height: parent.height;
-                                text: root.dialog-mode == 3 ? "Xóa" : "Lưu";
+                                text: root.dialog-mode == 3 ? I18n.t("Xóa", "Delete") : I18n.t("Lưu", "Save");
                                 color: Theme.on-accent;
                                 font-size: 13px;
                                 font-weight: 600;

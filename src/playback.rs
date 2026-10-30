@@ -1,5 +1,6 @@
 //! Audio transport: pure engine state, a Rodio output adapter, and a worker thread.
 
+use crate::i18n::tr;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
@@ -288,20 +289,23 @@ impl<O: AudioOutput> Engine<O> {
 pub struct RodioOutput {
     _stream: rodio::OutputStream,
     sink: rodio::Sink,
-    device: String,
+    device: Option<(u32, u16)>,
 }
 
 impl RodioOutput {
     pub fn new() -> Result<Self, String> {
-        let mut stream = rodio::OutputStreamBuilder::open_default_stream()
-            .map_err(|e| format!("Không mở được thiết bị âm thanh: {e}"))?;
+        let mut stream = rodio::OutputStreamBuilder::open_default_stream().map_err(|e| {
+            format!(
+                "{} {e}",
+                tr(
+                    "Không mở được thiết bị âm thanh:",
+                    "Could not open the audio device:"
+                )
+            )
+        })?;
         stream.log_on_drop(false);
         let config = stream.config();
-        let device = format!(
-            "{} kHz · {} kênh",
-            config.sample_rate() / 1000,
-            config.channel_count()
-        );
+        let device = Some((config.sample_rate(), config.channel_count()));
         let sink = rodio::Sink::connect_new(stream.mixer());
         Ok(Self {
             _stream: stream,
@@ -313,9 +317,10 @@ impl RodioOutput {
 
 impl AudioOutput for RodioOutput {
     fn load(&mut self, path: &Path) -> Result<u64, String> {
-        let file = std::fs::File::open(path).map_err(|e| format!("Không mở được tệp: {e}"))?;
+        let file = std::fs::File::open(path)
+            .map_err(|e| format!("{} {e}", tr("Không mở được tệp:", "Could not open file:")))?;
         let decoder = rodio::Decoder::new(std::io::BufReader::new(file))
-            .map_err(|e| format!("Không giải mã được: {e}"))?;
+            .map_err(|e| format!("{} {e}", tr("Không giải mã được:", "Could not decode:")))?;
         use rodio::Source;
         let duration_ms = decoder
             .total_duration()
@@ -340,7 +345,7 @@ impl AudioOutput for RodioOutput {
     fn seek(&mut self, position_ms: u64) -> Result<(), String> {
         self.sink
             .try_seek(Duration::from_millis(position_ms))
-            .map_err(|e| format!("Không tua được: {e}"))
+            .map_err(|e| format!("{} {e}", tr("Không tua được:", "Could not seek:")))
     }
     fn position_ms(&self) -> u64 {
         self.sink.get_pos().as_millis() as u64
@@ -358,7 +363,11 @@ pub struct SilentOutput;
 
 impl AudioOutput for SilentOutput {
     fn load(&mut self, _path: &Path) -> Result<u64, String> {
-        Err("Không có thiết bị âm thanh khả dụng".into())
+        Err(tr(
+            "Không có thiết bị âm thanh khả dụng",
+            "No audio device available",
+        )
+        .into())
     }
     fn play(&mut self) {}
     fn pause(&mut self) {}
@@ -385,14 +394,14 @@ pub struct Player {
     tx: Sender<Message>,
     snapshot: Arc<Mutex<PlaybackSnapshot>>,
     worker: Option<std::thread::JoinHandle<()>>,
-    device: String,
+    device: Option<(u32, u16)>,
 }
 
 impl Player {
     pub fn start() -> Self {
         match RodioOutput::new() {
             Ok(output) => {
-                let device = output.device.clone();
+                let device = output.device;
                 let mut player = Self::start_with(output);
                 player.device = device;
                 player
@@ -401,9 +410,10 @@ impl Player {
         }
     }
 
-    /// Output device summary, kept separate from per-file properties.
-    pub fn device(&self) -> &str {
-        &self.device
+    /// Output device format (sample rate in Hz, channels), kept separate from per-file
+    /// properties. Numbers, not text, so the UI can format them in the current language.
+    pub fn device(&self) -> Option<(u32, u16)> {
+        self.device
     }
 
     pub fn start_with<O: AudioOutput + 'static>(output: O) -> Self {
@@ -418,7 +428,7 @@ impl Player {
             tx,
             snapshot,
             worker: Some(worker),
-            device: String::new(),
+            device: None,
         }
     }
 

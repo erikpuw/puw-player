@@ -2,6 +2,7 @@
 //!
 //! The library only stores references to files; it never moves or deletes audio.
 
+use crate::i18n::tr;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -216,7 +217,11 @@ impl Library {
     pub fn create_playlist(&mut self, name: &str) -> Result<i64, String> {
         let name = name.trim();
         if name.is_empty() {
-            return Err("Tên playlist không được để trống".into());
+            return Err(tr(
+                "Tên playlist không được để trống",
+                "Playlist name cannot be empty",
+            )
+            .into());
         }
         self.conn
             .execute("INSERT INTO playlists(name) VALUES(?1)", params![name])
@@ -227,7 +232,11 @@ impl Library {
     pub fn rename_playlist(&mut self, playlist: i64, name: &str) -> Result<(), String> {
         let name = name.trim();
         if name.is_empty() {
-            return Err("Tên playlist không được để trống".into());
+            return Err(tr(
+                "Tên playlist không được để trống",
+                "Playlist name cannot be empty",
+            )
+            .into());
         }
         self.conn
             .execute(

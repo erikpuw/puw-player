@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 use slint::{ComponentHandle, Model, ModelRc, VecModel};
 
 use puw_player::artwork;
+use puw_player::i18n::{self, tr};
 use puw_player::library::{Library, Playlist, Track};
 use puw_player::lyrics::{LyricLine, LyricsRequest, LyricsResolver, ResolvedLyrics, active_line};
 use puw_player::playback::{PlaybackCommand, PlaybackState, Player, read_tags};
@@ -95,7 +96,12 @@ fn main() -> Result<(), slint::PlatformError> {
         Ok(library) => library,
         Err(error) => {
             ui.set_status_message(
-                format!("Không mở được thư viện: {error}. Đang dùng bộ nhớ tạm.").into(),
+                tr(
+                    "Không mở được thư viện: {error}. Đang dùng bộ nhớ tạm.",
+                    "Could not open the library: {error}. Using temporary memory.",
+                )
+                .replace("{error}", &error)
+                .into(),
             );
             ui.set_has_status(true);
             Library::open(Path::new(":memory:")).expect("in-memory library")
@@ -155,6 +161,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         let mut s = state.borrow_mut();
         s.settings = s.library.settings().unwrap_or_default();
+        set_language(&ui, s.settings.english);
         ui.set_lyrics_online(s.settings.lyrics_online);
         ui.set_theme_mode(match s.settings.theme {
             AppTheme::System => 0,
@@ -315,7 +322,15 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
     on!(on_play_playlist, |ui, s| {
         let tracks = s.playlist_tracks.clone();
         if tracks.is_empty() {
-            set_status(ui, s, "Playlist này chưa có bài hát.".to_string());
+            set_status(
+                ui,
+                s,
+                tr(
+                    "Playlist này chưa có bài hát.",
+                    "This playlist has no tracks yet.",
+                )
+                .to_string(),
+            );
             return;
         }
         let start = play_all_start(s, tracks.len());
@@ -324,7 +339,10 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
 
     on!(on_add_files, |ui, s| {
         let files = rfd::FileDialog::new()
-            .add_filter("Âm thanh", puw_player::library::AUDIO_EXTENSIONS)
+            .add_filter(
+                tr("Âm thanh", "Audio"),
+                puw_player::library::AUDIO_EXTENSIONS,
+            )
             .pick_files()
             .unwrap_or_default();
         if !files.is_empty() {
@@ -387,6 +405,32 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
                 }
             }
             _ => {}
+        }
+    });
+
+    let weak = handle.clone();
+    let state_rc = state.clone();
+    ui.on_set_language(move |english| {
+        let Some(ui) = weak.upgrade() else { return };
+        let mut s = state_rc.borrow_mut();
+        s.settings.english = english;
+        let settings = s.settings.clone();
+        let _ = s.library.save_settings(&settings);
+        set_language(&ui, english);
+        // Text built on the Rust side carries the old language until rebuilt.
+        refresh_library(&ui, &mut s);
+        refresh_playlists(&ui, &mut s);
+        refresh_playlist_tracks(&ui, &mut s);
+        ui.set_now_device(device_label(&s.player).into());
+        if let Some(track) = s
+            .current_id
+            .and_then(|id| s.library.track(id).ok().flatten())
+        {
+            ui.set_now_title(display_title(&track).into());
+            ui.set_now_artist(display_artist(&track).into());
+        }
+        if ui.get_lyrics_visible() {
+            request_lyrics(&ui, &mut s);
         }
     });
 
@@ -511,7 +555,7 @@ fn poll(ui: &AppWindow, s: &mut AppState) {
         let message = snapshot
             .error
             .clone()
-            .unwrap_or_else(|| "Không phát được bài này".into());
+            .unwrap_or_else(|| tr("Không phát được bài này", "Could not play this track").into());
         handle_playback_error(ui, s, message);
     }
 
@@ -543,7 +587,13 @@ fn poll(ui: &AppWindow, s: &mut AppState) {
             set_status(
                 ui,
                 s,
-                format!("Không đăng ký được điều khiển media của Windows: {error}"),
+                format!(
+                    "{} {error}",
+                    tr(
+                        "Không đăng ký được điều khiển media của Windows:",
+                        "Could not register with Windows media controls:"
+                    )
+                ),
             );
         }
     }
@@ -639,12 +689,12 @@ fn drain_lyrics(ui: &AppWindow, s: &mut AppState) {
                     .collect();
                 if resolved.instrumental {
                     ui.set_lyrics_instrumental(true);
-                    ui.set_lyrics_status("Bản nhạc không lời.".into());
+                    ui.set_lyrics_status(tr("Bản nhạc không lời.", "Instrumental track.").into());
                 } else {
                     ui.set_lyrics_instrumental(false);
                     ui.set_lyrics_status(
                         if resolved.lines.is_empty() {
-                            "Chưa có lời cho bài này."
+                            tr("Chưa có lời cho bài này.", "No lyrics for this track yet.")
                         } else {
                             ""
                         }
@@ -674,13 +724,22 @@ fn drain_import(ui: &AppWindow, s: &mut AppState) {
             Ok((imported, failed)) => {
                 refresh_library(ui, s);
                 refresh_playlists(ui, s);
-                let mut text = format!("Đã thêm {imported} bài.");
+                let mut text = tr("Đã thêm {n} bài.", "Added {n} tracks.")
+                    .replace("{n}", &imported.to_string());
                 if failed > 0 {
-                    text.push_str(&format!(" {failed} tệp không đọc được."));
+                    text.push(' ');
+                    text.push_str(
+                        &tr("{n} tệp không đọc được.", "{n} files could not be read.")
+                            .replace("{n}", &failed.to_string()),
+                    );
                 }
                 set_status(ui, s, text);
             }
-            Err(error) => set_status(ui, s, format!("Nhập nhạc thất bại: {error}")),
+            Err(error) => set_status(
+                ui,
+                s,
+                format!("{} {error}", tr("Nhập nhạc thất bại:", "Import failed:")),
+            ),
         }
     }
 }
@@ -706,7 +765,7 @@ fn refresh_playlists(ui: &AppWindow, s: &mut AppState) {
                 .and_then(|tracks| tracks.first().map(|track| track.path.clone()));
             PlaylistRow {
                 name: playlist.name.clone().into(),
-                count: format!("{} bài", playlist.count).into(),
+                count: track_count(playlist.count).into(),
                 cover: cover_path
                     .as_deref()
                     .and_then(|path| load_cover_now(path, THUMB))
@@ -719,7 +778,7 @@ fn refresh_playlists(ui: &AppWindow, s: &mut AppState) {
     if index >= 0 && (index as usize) < s.playlists.len() {
         let playlist = &s.playlists[index as usize];
         ui.set_current_playlist_name(playlist.name.clone().into());
-        ui.set_current_playlist_count(format!("{} bài", playlist.count).into());
+        ui.set_current_playlist_count(track_count(playlist.count).into());
     }
 }
 
@@ -734,7 +793,7 @@ fn refresh_playlist_tracks(ui: &AppWindow, s: &mut AppState) {
     let rows: Vec<TrackRow> = tracks.iter().map(|track| make_row(s, track)).collect();
     s.playlist_model.set_vec(rows);
     ui.set_current_playlist_name(playlist.name.clone().into());
-    ui.set_current_playlist_count(format!("{} bài", playlist.count).into());
+    ui.set_current_playlist_count(track_count(playlist.count).into());
 }
 
 fn make_row(s: &mut AppState, track: &Track) -> TrackRow {
@@ -856,7 +915,7 @@ fn load_current(ui: &AppWindow, s: &mut AppState) {
     ui.set_lyrics_instrumental(false);
     ui.set_lyrics_status(
         if ui.get_lyrics_visible() {
-            "Đang tải lời…"
+            tr("Đang tải lời…", "Loading lyrics…")
         } else {
             ""
         }
@@ -906,7 +965,11 @@ fn toggle_play(ui: &AppWindow, s: &mut AppState) {
         _ if s.current_id.is_none() => {
             let tracks = s.library_tracks.clone();
             if tracks.is_empty() {
-                set_status(ui, s, "Thư viện chưa có bài hát.".to_string());
+                set_status(
+                    ui,
+                    s,
+                    tr("Thư viện chưa có bài hát.", "Your library is empty.").to_string(),
+                );
                 return;
             }
             let start = play_all_start(s, tracks.len());
@@ -1022,7 +1085,7 @@ fn request_lyrics(ui: &AppWindow, s: &mut AppState) {
     let tx = s.lyrics_tx.clone();
     let db_path = s.db_path.clone();
     let online = s.settings.lyrics_online;
-    ui.set_lyrics_status("Đang tải lời…".into());
+    ui.set_lyrics_status(tr("Đang tải lời…", "Loading lyrics…").into());
     std::thread::spawn(move || {
         let mut library = match Library::open(&db_path) {
             Ok(library) => library,
@@ -1105,7 +1168,12 @@ fn add_library_track(ui: &AppWindow, s: &mut AppState, track_index: i32, playlis
             set_status(
                 ui,
                 s,
-                format!("Đã thêm “{}” vào “{name}”.", display_title(&track)),
+                tr(
+                    "Đã thêm “{title}” vào “{name}”.",
+                    "Added “{title}” to “{name}”.",
+                )
+                .replace("{title}", display_title(&track))
+                .replace("{name}", &name),
             );
         }
         Err(error) => set_status(ui, s, error),
@@ -1240,17 +1308,32 @@ fn color_rgb((r, g, b): (u8, u8, u8)) -> slint::Color {
 }
 
 fn device_label(player: &Player) -> String {
-    let device = player.device();
-    if device.is_empty() {
-        String::new()
+    let Some((rate, channels)) = player.device() else {
+        return String::new();
+    };
+    tr("Ra · {khz} kHz · {ch} kênh", "Out · {khz} kHz · {ch} ch")
+        .replace("{khz}", &(rate / 1000).to_string())
+        .replace("{ch}", &channels.to_string())
+}
+
+/// Switches both the Rust `tr` texts and every Slint `I18n.t` binding.
+fn set_language(ui: &AppWindow, english: bool) {
+    i18n::set_english(english);
+    ui.global::<I18n>().set_en(english);
+}
+
+fn track_count(count: impl std::fmt::Display) -> String {
+    let count = count.to_string();
+    if count == "1" {
+        tr("1 bài", "1 track").to_string()
     } else {
-        format!("Ra · {device}")
+        tr("{n} bài", "{n} tracks").replace("{n}", &count)
     }
 }
 
 fn display_title(track: &Track) -> &str {
     if track.title.trim().is_empty() {
-        "Không rõ tên"
+        tr("Không rõ tên", "Unknown title")
     } else {
         &track.title
     }
@@ -1258,7 +1341,7 @@ fn display_title(track: &Track) -> &str {
 
 fn display_artist(track: &Track) -> &str {
     if track.artist.trim().is_empty() {
-        "Không rõ nghệ sĩ"
+        tr("Không rõ nghệ sĩ", "Unknown artist")
     } else {
         &track.artist
     }

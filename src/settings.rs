@@ -32,6 +32,8 @@ impl Theme {
 pub struct Settings {
     pub theme: Theme,
     pub lyrics_online: bool,
+    /// Interface language: false = Vietnamese (default), true = English.
+    pub english: bool,
 }
 
 impl Default for Settings {
@@ -39,6 +41,7 @@ impl Default for Settings {
         Self {
             theme: Theme::System,
             lyrics_online: false,
+            english: false,
         }
     }
 }
@@ -58,6 +61,7 @@ pub fn load(conn: &Connection) -> Result<Settings, String> {
         match key.as_str() {
             "theme" => settings.theme = Theme::from_str(&value),
             "lyrics_online" => settings.lyrics_online = value == "1",
+            "language" => settings.english = value == "en",
             _ => {}
         }
     }
@@ -75,6 +79,12 @@ pub fn save(conn: &Connection, settings: &Settings) -> Result<(), String> {
         "INSERT INTO settings(key, value) VALUES('lyrics_online', ?1)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         params![if settings.lyrics_online { "1" } else { "0" }],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO settings(key, value) VALUES('language', ?1)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![if settings.english { "en" } else { "vi" }],
     )
     .map_err(|e| e.to_string())?;
     Ok(())
