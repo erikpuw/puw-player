@@ -1,4 +1,5 @@
 use puw_player::library::{Library, Track};
+use puw_player::queue::RepeatMode;
 use puw_player::settings::{Settings, Theme};
 
 fn sample(path: &std::path::Path) -> Track {
@@ -70,6 +71,8 @@ fn settings_and_lyric_offset_survive_reopen() {
         theme: Theme::Dark,
         lyrics_online: true,
         english: true,
+        shuffle: true,
+        repeat: RepeatMode::One,
     })
     .unwrap();
     lib.set_lyric_offset(id, 250).unwrap();
@@ -81,6 +84,8 @@ fn settings_and_lyric_offset_survive_reopen() {
             theme: Theme::Dark,
             lyrics_online: true,
             english: true,
+            shuffle: true,
+            repeat: RepeatMode::One,
         }
     );
     assert_eq!(lib.lyric_offset(id).unwrap(), 250);

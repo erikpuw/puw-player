@@ -1,5 +1,6 @@
 //! Persisted preferences. Stored in the library database so one file carries all app state.
 
+use crate::queue::RepeatMode;
 use rusqlite::{Connection, params};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -34,6 +35,9 @@ pub struct Settings {
     pub lyrics_online: bool,
     /// Interface language: false = Vietnamese (default), true = English.
     pub english: bool,
+    /// Playback modes survive restarts; re-clicking them every launch is tedious.
+    pub shuffle: bool,
+    pub repeat: RepeatMode,
 }
 
 impl Default for Settings {
@@ -42,6 +46,8 @@ impl Default for Settings {
             theme: Theme::System,
             lyrics_online: false,
             english: false,
+            shuffle: false,
+            repeat: RepeatMode::default(),
         }
     }
 }
@@ -62,30 +68,49 @@ pub fn load(conn: &Connection) -> Result<Settings, String> {
             "theme" => settings.theme = Theme::from_str(&value),
             "lyrics_online" => settings.lyrics_online = value == "1",
             "language" => settings.english = value == "en",
+            "shuffle" => settings.shuffle = value == "1",
+            "repeat" => settings.repeat = repeat_from(&value),
             _ => {}
         }
     }
     Ok(settings)
 }
 
+fn repeat_key(mode: RepeatMode) -> &'static str {
+    match mode {
+        RepeatMode::Off => "off",
+        RepeatMode::All => "all",
+        RepeatMode::One => "one",
+    }
+}
+
+fn repeat_from(value: &str) -> RepeatMode {
+    match value {
+        "all" => RepeatMode::All,
+        "one" => RepeatMode::One,
+        _ => RepeatMode::Off,
+    }
+}
+
+fn put(conn: &Connection, key: &str, value: &str) -> Result<(), String> {
+    conn.execute(
+        "INSERT INTO settings(key, value) VALUES(?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![key, value],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 pub fn save(conn: &Connection, settings: &Settings) -> Result<(), String> {
-    conn.execute(
-        "INSERT INTO settings(key, value) VALUES('theme', ?1)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        params![settings.theme.as_str()],
-    )
-    .map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT INTO settings(key, value) VALUES('lyrics_online', ?1)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        params![if settings.lyrics_online { "1" } else { "0" }],
-    )
-    .map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT INTO settings(key, value) VALUES('language', ?1)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        params![if settings.english { "en" } else { "vi" }],
-    )
-    .map_err(|e| e.to_string())?;
+    put(conn, "theme", settings.theme.as_str())?;
+    put(
+        conn,
+        "lyrics_online",
+        if settings.lyrics_online { "1" } else { "0" },
+    )?;
+    put(conn, "language", if settings.english { "en" } else { "vi" })?;
+    put(conn, "shuffle", if settings.shuffle { "1" } else { "0" })?;
+    put(conn, "repeat", repeat_key(settings.repeat))?;
     Ok(())
 }
