@@ -32,3 +32,4 @@ Plan: docs/superpowers/plans/2026-10-30-puw-player.md
 - Cover flow: bỏ xoay 2D; bìa lân cận vẽ thành tấm phối cảnh hình thang (cắt dải dọc, nội suy chiều cao) theo `approved-player.png`; mỗi bên 2 bìa thật từ hàng đợi (`cover-prev2/next2`), không lặp ảnh; tự thu nhỏ khi cột hẹp.
 - Bìa không hiện: một worker decode FIFO bị hàng trăm job thumbnail chặn trước bìa 256px. Tách 2 worker (thumbnail / bìa lớn).
 - Kiểm chứng: chụp cửa sổ thật 1200×680 khi đang phát; 24 test, clippy, fmt xanh. Chưa chụp ở 960 px và theme sáng.
+- Hàng nút theo ảnh chi tiết của người dùng: icon trắng nét dày, prev/next/stop khối đặc, nút phát 70 px, vạch pause dài hơn; núm thời gian/âm lượng luôn hiện 14 px; rãnh sáng hơn; thêm `HDivider` mờ hai đầu trên timeline và trên hàng âm lượng; hàng âm lượng dồn trái; nhãn lặp xanh đậm.

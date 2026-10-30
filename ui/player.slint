@@ -43,10 +43,10 @@ export global Motion {
 
 export global Icons {
     out property <string> play: "M 8 5.5 L 19 12 L 8 18.5 Z";
-    out property <string> pause: "M 8.5 6 V 18 M 15.5 6 V 18";
-    out property <string> previous: "M 7 6 V 18 M 18 6.5 L 9.5 12 L 18 17.5 Z";
-    out property <string> next: "M 17 6 V 18 M 6 6.5 L 14.5 12 L 6 17.5 Z";
-    out property <string> stop: "M 7.5 7.5 H 16.5 V 16.5 H 7.5 Z";
+    out property <string> pause: "M 8.5 4.5 V 19.5 M 15.5 4.5 V 19.5";
+    out property <string> previous: "M 5.5 5.5 H 8.5 V 18.5 H 5.5 Z M 19 5.5 L 9.5 12 L 19 18.5 Z";
+    out property <string> next: "M 15.5 5.5 H 18.5 V 18.5 H 15.5 Z M 5 5.5 L 14.5 12 L 5 18.5 Z";
+    out property <string> stop: "M 6.5 6.5 H 17.5 V 17.5 H 6.5 Z";
     out property <string> shuffle: "M 4 8 H 7 L 17 16 H 20 M 17 8 H 20 M 4 16 H 7 L 11 12 M 17.5 5.5 L 20 8 L 17.5 10.5 M 17.5 13.5 L 20 16 L 17.5 18.5";
     out property <string> repeat: "M 4.5 12 A 7.5 7.5 0 0 1 17 7.2 M 19.5 12 A 7.5 7.5 0 0 1 7 16.8 M 14.5 4.2 L 17.6 7.1 L 14.2 9.2 M 9.5 19.8 L 6.4 16.9 L 9.8 14.8";
     out property <string> skip-back: "M 12 4.5 A 7.5 7.5 0 1 1 4.5 12 M 12 4.5 L 15.5 1.5 M 12 4.5 L 15.5 7.5";
@@ -105,6 +105,7 @@ component IconButton inherits Rectangle {
     in property <bool> active: false;
     in property <bool> plate: false;
     in property <color> tint: Theme.muted;
+    in property <length> weight: 1.8px;
     callback clicked();
     min-width: size;
     max-width: size;
@@ -128,6 +129,7 @@ component IconButton inherits Rectangle {
             glyph-size: root.icon-size;
             icon: root.icon;
             filled: root.filled-icon;
+            weight: root.weight;
             tint: root.active ? Theme.accent : root.tint;
         }
         if root.badge != "": Text {
@@ -135,6 +137,7 @@ component IconButton inherits Rectangle {
             height: parent.height;
             text: root.badge;
             font-size: 9px;
+            font-weight: 700;
             color: root.tint;
             horizontal-alignment: center;
             vertical-alignment: center;
@@ -169,6 +172,12 @@ component PerspectiveCover inherits Rectangle {
     }
 }
 
+// Full-width hairline that fades out at both ends.
+component HDivider inherits Rectangle {
+    height: 1px;
+    background: @linear-gradient(90deg, transparent 0%, Theme.line 12%, Theme.line 88%, transparent 100%);
+}
+
 // Thin vertical divider that stays centered inside a row layout.
 component VDivider inherits Rectangle {
     in property <length> line-height: 18px;
@@ -195,7 +204,7 @@ component Timeline inherits Rectangle {
         height: 4px;
         width: parent.width;
         border-radius: 2px;
-        background: Theme.line;
+        background: Theme.muted.transparentize(0.55);
     }
     Rectangle {
         x: 0;
@@ -206,14 +215,12 @@ component Timeline inherits Rectangle {
         background: Theme.accent;
     }
     Rectangle {
-        x: min(parent.width - 12px, max(-6px, parent.width * root.ratio - 6px));
-        y: (parent.height - 12px) / 2;
-        width: 12px;
-        height: 12px;
-        border-radius: 6px;
-        background: Theme.accent;
-        opacity: touch.has-hover || touch.pressed ? 1 : 0.001;
-        animate opacity { duration: Motion.fast; }
+        x: min(parent.width - 14px, max(0px, parent.width * root.ratio - 7px));
+        y: (parent.height - 14px) / 2;
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        background: Theme.accent.brighter(0.15);
     }
     touch := TouchArea {
         mouse-cursor: pointer;
@@ -240,7 +247,7 @@ component VolumeSlider inherits Rectangle {
         height: 4px;
         width: parent.width;
         border-radius: 2px;
-        background: Theme.line;
+        background: Theme.muted.transparentize(0.55);
     }
     Rectangle {
         x: 0;
@@ -251,12 +258,12 @@ component VolumeSlider inherits Rectangle {
         background: Theme.accent;
     }
     Rectangle {
-        x: min(parent.width - 10px, max(0px, parent.width * root.volume - 5px));
-        y: (parent.height - 10px) / 2;
-        width: 10px;
-        height: 10px;
-        border-radius: 5px;
-        background: Theme.accent;
+        x: min(parent.width - 14px, max(0px, parent.width * root.volume - 7px));
+        y: (parent.height - 14px) / 2;
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        background: Theme.accent.brighter(0.15);
     }
     volume-touch := TouchArea {
         mouse-cursor: pointer;
@@ -772,7 +779,7 @@ export component AppWindow inherits Window {
                         x: 0;
                         y: 0;
                         width: parent.width;
-                        height: max(240px, parent.height - 308px);
+                        height: max(220px, parent.height - 322px);
                         background: transparent;
                         clip: true;
 
@@ -852,9 +859,9 @@ export component AppWindow inherits Window {
 
                     Rectangle {
                         x: 0;
-                        y: parent.height - 308px;
+                        y: parent.height - 322px;
                         width: parent.width;
-                        height: 116px;
+                        height: 104px;
                         background: transparent;
                         VerticalLayout {
                             alignment: center;
@@ -884,12 +891,14 @@ export component AppWindow inherits Window {
                         }
                     }
 
+                    HDivider { x: 0; y: parent.height - 212px; width: parent.width; }
+
                     HorizontalLayout {
                         x: 0;
-                        y: parent.height - 192px;
+                        y: parent.height - 204px;
                         width: parent.width;
                         height: 34px;
-                        spacing: 12px;
+                        spacing: 18px;
                         Text {
                             text: root.position-label;
                             color: Theme.muted;
@@ -912,17 +921,20 @@ export component AppWindow inherits Window {
 
                     HorizontalLayout {
                         x: 0;
-                        y: parent.height - 143px;
+                        y: parent.height - 158px;
                         width: parent.width;
                         height: 76px;
                         alignment: center;
-                        spacing: 16px;
+                        spacing: 18px;
 
                         IconButton {
                             icon: Icons.shuffle;
                             label: "Phát ngẫu nhiên";
-                            size: 44px;
+                            size: 46px;
+                            icon-size: 26px;
+                            weight: 2.2px;
                             plate: true;
+                            tint: Theme.text;
                             active: root.shuffle;
                             clicked => { root.toggle-shuffle(); }
                         }
@@ -930,36 +942,39 @@ export component AppWindow inherits Window {
                             icon: Icons.skip-back;
                             badge: "10";
                             label: "Lùi 10 giây";
-                            size: 44px;
-                            icon-size: 26px;
+                            size: 46px;
+                            icon-size: 32px;
+                            weight: 2px;
                             plate: true;
+                            tint: Theme.text;
                             clicked => { root.seek-backward(); }
                         }
                         IconButton {
                             icon: Icons.previous;
                             label: "Bài trước";
-                            size: 50px;
-                            icon-size: 20px;
+                            size: 52px;
+                            icon-size: 24px;
+                            filled-icon: true;
                             plate: true;
                             tint: Theme.text;
                             clicked => { root.previous(); }
                         }
                         Rectangle {
-                            min-width: 76px;
-                            max-width: 76px;
-                            min-height: 76px;
-                            max-height: 76px;
-                            border-radius: 38px;
+                            min-width: 70px;
+                            max-width: 70px;
+                            min-height: 70px;
+                            max-height: 70px;
+                            border-radius: 35px;
                             background: Theme.accent;
                             opacity: root.has-track ? 1 : 0.45;
                             accessible-role: button;
                             accessible-label: root.playing ? "Tạm dừng" : "Phát";
                             Glyph {
-                                x: 26px;
-                                y: 26px;
-                                width: 24px;
-                                height: 24px;
-                                glyph-size: 24px;
+                                x: 22px;
+                                y: 22px;
+                                width: 26px;
+                                height: 26px;
+                                glyph-size: 26px;
                                 icon: Icons.play;
                                 filled: true;
                                 tint: Theme.on-accent;
@@ -967,13 +982,13 @@ export component AppWindow inherits Window {
                                 animate opacity { duration: Motion.fast; }
                             }
                             Glyph {
-                                x: 26px;
-                                y: 26px;
-                                width: 24px;
-                                height: 24px;
-                                glyph-size: 24px;
+                                x: 20px;
+                                y: 20px;
+                                width: 30px;
+                                height: 30px;
+                                glyph-size: 30px;
                                 icon: Icons.pause;
-                                weight: 3.4px;
+                                weight: 4.2px;
                                 tint: Theme.on-accent;
                                 opacity: root.playing ? 1 : 0;
                                 animate opacity { duration: Motion.fast; }
@@ -983,8 +998,9 @@ export component AppWindow inherits Window {
                         IconButton {
                             icon: Icons.next;
                             label: "Bài tiếp theo";
-                            size: 50px;
-                            icon-size: 20px;
+                            size: 52px;
+                            icon-size: 24px;
+                            filled-icon: true;
                             plate: true;
                             tint: Theme.text;
                             clicked => { root.next(); }
@@ -993,55 +1009,65 @@ export component AppWindow inherits Window {
                             icon: Icons.skip-forward;
                             badge: "10";
                             label: "Tiến 10 giây";
-                            size: 44px;
-                            icon-size: 26px;
+                            size: 46px;
+                            icon-size: 32px;
+                            weight: 2px;
                             plate: true;
+                            tint: Theme.text;
                             clicked => { root.seek-forward(); }
                         }
                         // Label sits below the button; equal top padding keeps the button on the row's center line.
                         VerticalLayout {
                             spacing: 0;
                             alignment: center;
-                            padding-top: 16px;
+                            padding-top: 18px;
                             IconButton {
                                 icon: Icons.repeat;
                                 label: "Lặp lại";
-                                size: 44px;
+                                size: 46px;
+                                icon-size: 28px;
+                                weight: 2.2px;
                                 plate: true;
+                                tint: Theme.text;
                                 active: root.repeat-mode > 0;
                                 clicked => { root.cycle-repeat(); }
                             }
                             Text {
-                                height: 16px;
-                                vertical-alignment: center;
+                                height: 18px;
+                                vertical-alignment: bottom;
                                 text: root.repeat-label;
                                 color: root.repeat-mode > 0 ? Theme.accent : Theme.muted;
-                                font-size: 11px;
+                                font-size: 12px;
+                                font-weight: 600;
                                 horizontal-alignment: center;
                             }
                         }
                     }
 
+                    HDivider { x: 0; y: parent.height - 70px; width: parent.width; }
+
                     HorizontalLayout {
                         x: 0;
-                        y: parent.height - 52px;
+                        y: parent.height - 60px;
                         width: parent.width;
                         height: 52px;
                         spacing: 14px;
-                        alignment: center;
                         IconButton {
                             icon: Icons.stop;
                             label: "Dừng";
-                            size: 40px;
-                            icon-size: 14px;
+                            size: 42px;
+                            icon-size: 18px;
+                            filled-icon: true;
                             plate: true;
+                            tint: Theme.text;
                             clicked => { root.stop(); }
                         }
                         VDivider { }
                         Glyph {
-                            glyph-size: 20px;
+                            glyph-size: 24px;
+                            weight: 2px;
                             icon: Icons.volume;
-                            tint: Theme.muted;
+                            tint: Theme.text;
                         }
                         VolumeSlider {
                             min-width: 200px;
