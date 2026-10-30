@@ -26,6 +26,7 @@ Cơ sở dữ liệu nằm tại `%APPDATA%\puw-player\library.db`. Lần chạy
 - Cover flow từ chính hàng đợi (2 bìa mỗi bên, phối cảnh); Next/Previous trượt cả dải một nấc, tắt khi Windows giảm chuyển động. Bìa chính giữ tỷ lệ, không crop, không phóng to quá 256×256.
 - Lời: ưu tiên `.lrc` cùng tên, rồi cache, rồi LRCLIB (mặc định tắt). LRCLIB lỗi 502/503/504 được tự thử lại một lần. Click dòng có timestamp để tua; nút "Theo bài hát" khôi phục bám dòng; chỉnh lệch ±0,5 giây lưu riêng cho từng bài.
 - Theme Hệ thống/Sáng/Tối; DWM bo góc 12 px khi không maximize; tôn trọng cài đặt giảm chuyển động của Windows.
+- Đăng ký Windows Media Controls (SMTC): tên bài, nghệ sĩ, album, ảnh bìa, tiến trình hiện ở bảng media của Windows và các app đọc "now playing" như puw-notch; nhận lại Play/Pause/Next/Previous/Stop/tua và phím media trên bàn phím.
 - Phím: `Space` phát/tạm dừng, `←`/`→` tua ±10 giây, `↑`/`↓` âm lượng, `Esc` đóng lớp đang mở.
 
 ## Định dạng đã kiểm chứng
@@ -64,4 +65,5 @@ Test chạy không cần thiết bị âm thanh (engine có output giả lập).
 - `src/lyrics.rs` — parser LRC, tìm dòng hiện tại, nguồn local/cache/LRCLIB.
 - `src/settings.rs` — theme và bật/tắt lời online.
 - `ui/player.slint` — toàn bộ giao diện.
+- `src/media_keys.rs` — Windows Media Controls (SMTC) qua `souvlaki`; ảnh bìa xuất PNG tạm vào `%TEMP%\puw-player`.
 - `src/main.rs` — nối UI với core, DWM, theme hệ thống, cover loader.

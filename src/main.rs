@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod media_keys;
+
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -83,6 +85,7 @@ struct AppState {
     status_until: Option<Instant>,
     theme_poll: Instant,
     styled: bool,
+    media: media_keys::SystemMedia,
 }
 
 fn main() -> Result<(), slint::PlatformError> {
@@ -142,6 +145,7 @@ fn main() -> Result<(), slint::PlatformError> {
         status_until: None,
         theme_poll: Instant::now(),
         styled: false,
+        media: media_keys::SystemMedia::new(),
     }));
 
     ui.set_tracks(ModelRc::from(state.borrow().tracks_model.clone()));
@@ -202,10 +206,7 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
     }
 
     on!(on_play_pause, |ui, s| toggle_play(ui, s));
-    on!(on_stop, |ui, s| {
-        s.player.send(PlaybackCommand::Stop);
-        ui.set_playing(false);
-    });
+    on!(on_stop, |ui, s| stop_playback(ui, s));
     on!(on_next, |ui, s| next_track(ui, s));
     on!(on_previous, |ui, s| previous_track(ui, s));
     on!(on_seek_backward, |ui, s| seek_relative(ui, s, -10_000));
@@ -536,6 +537,27 @@ fn poll(ui: &AppWindow, s: &mut AppState) {
         s.styled = true;
         ui.set_lists_ready(true);
         apply_border_style(ui, ui.window().is_maximized());
+        if let Some(hwnd) = window_hwnd(ui)
+            && let Err(error) = s.media.attach(hwnd)
+        {
+            set_status(
+                ui,
+                s,
+                format!("Không đăng ký được điều khiển media của Windows: {error}"),
+            );
+        }
+    }
+
+    for event in s.media.events() {
+        handle_media_event(ui, s, event);
+    }
+    if s.current_id.is_some() {
+        let status = match snapshot.state {
+            PlaybackState::Playing => media_keys::Status::Playing,
+            PlaybackState::Paused => media_keys::Status::Paused,
+            _ => media_keys::Status::Stopped,
+        };
+        s.media.update_playback(status, snapshot.position_ms);
     }
 
     let maximized = ui.window().is_maximized();
@@ -582,7 +604,10 @@ fn drain_covers(ui: &AppWindow, s: &mut AppState) {
                 && result.max == COVER
             {
                 match s.library.track(id).ok().flatten() {
-                    Some(track) if track.path == result.path => ui.set_cover(image.clone()),
+                    Some(track) if track.path == result.path => {
+                        ui.set_cover(image.clone());
+                        s.media.set_cover(id, &image);
+                    }
                     _ => {}
                 }
                 // Refresh neighbors as their artwork arrives.
@@ -816,7 +841,9 @@ fn load_current(ui: &AppWindow, s: &mut AppState) {
     ui.set_duration_label(format_time(track.duration_ms as f64).into());
     ui.set_position(0.0);
     ui.set_position_label("00:00".into());
-    ui.set_cover(ensure_cover(s, &track.path, COVER).unwrap_or_default());
+    let cover = ensure_cover(s, &track.path, COVER);
+    s.media.set_track(&track, cover.as_ref());
+    ui.set_cover(cover.unwrap_or_default());
     set_neighbor_covers(ui, s);
     ui.invoke_start_flow(flow_dir);
 
@@ -908,6 +935,43 @@ fn previous_track(ui: &AppWindow, s: &mut AppState) {
     };
     if queue.previous().is_some() {
         load_current(ui, s);
+    }
+}
+
+fn stop_playback(ui: &AppWindow, s: &mut AppState) {
+    s.player.send(PlaybackCommand::Stop);
+    ui.set_playing(false);
+}
+
+/// Buttons from the Windows media flyout, keyboard media keys and readers such as puw-notch.
+fn handle_media_event(ui: &AppWindow, s: &mut AppState, event: souvlaki::MediaControlEvent) {
+    use souvlaki::{MediaControlEvent as E, SeekDirection};
+    let playing = s.player.snapshot().state == PlaybackState::Playing;
+    match event {
+        E::Toggle => toggle_play(ui, s),
+        E::Play if !playing => toggle_play(ui, s),
+        E::Pause if playing => toggle_play(ui, s),
+        E::Next => next_track(ui, s),
+        E::Previous => previous_track(ui, s),
+        E::Stop => stop_playback(ui, s),
+        E::Seek(SeekDirection::Forward) => seek_relative(ui, s, 10_000),
+        E::Seek(SeekDirection::Backward) => seek_relative(ui, s, -10_000),
+        E::SeekBy(direction, by) => {
+            let ms = by.as_millis() as i64;
+            seek_relative(
+                ui,
+                s,
+                if direction == SeekDirection::Forward {
+                    ms
+                } else {
+                    -ms
+                },
+            );
+        }
+        E::SetPosition(souvlaki::MediaPosition(at)) => {
+            s.player.send(PlaybackCommand::Seek(at.as_millis() as u64));
+        }
+        _ => {}
     }
 }
 
@@ -1272,19 +1336,29 @@ fn animations_enabled() -> bool {
 }
 
 #[cfg(windows)]
-fn apply_border_style(window: &AppWindow, maximized: bool) {
+fn window_hwnd(window: &AppWindow) -> Option<*mut core::ffi::c_void> {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    let handle = window.window().window_handle();
+    let handle = handle.window_handle().ok()?;
+    let RawWindowHandle::Win32(win32) = handle.as_raw() else {
+        return None;
+    };
+    Some(win32.hwnd.get() as *mut core::ffi::c_void)
+}
+
+#[cfg(not(windows))]
+fn window_hwnd(_window: &AppWindow) -> Option<*mut core::ffi::c_void> {
+    None
+}
+
+#[cfg(windows)]
+fn apply_border_style(window: &AppWindow, maximized: bool) {
     use windows_sys::Win32::Graphics::Dwm::{
         DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND, DWMWCP_ROUND, DwmSetWindowAttribute,
     };
-    let handle = window.window().window_handle();
-    let Ok(handle) = handle.window_handle() else {
+    let Some(hwnd) = window_hwnd(window) else {
         return;
     };
-    let RawWindowHandle::Win32(win32) = handle.as_raw() else {
-        return;
-    };
-    let hwnd = win32.hwnd.get() as *mut core::ffi::c_void;
     let preference: i32 = if maximized {
         DWMWCP_DONOTROUND
     } else {
