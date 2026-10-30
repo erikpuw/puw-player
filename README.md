@@ -22,7 +22,7 @@ Cơ sở dữ liệu nằm tại `%APPDATA%\puw-player\library.db`. Lần chạy
 - Thêm nhạc từ tệp hoặc thư mục; chỉ lưu đường dẫn, không di chuyển/sao chép/xóa file gốc.
 - Thư viện, playlist (tạo/đổi tên/xóa, thêm bài đang phát, bỏ bài khỏi playlist) lưu qua SQLite.
 - Hàng đợi khi phát: lặp Tắt → Tất cả → Một bài; shuffle có lịch sử để Previous quay đúng bài.
-- Cover flow từ chính hàng đợi; bìa giữ tỷ lệ, không crop, không phóng to quá 256×256.
+- Cover flow từ chính hàng đợi (2 bìa mỗi bên, phối cảnh); Next/Previous trượt cả dải một nấc, tắt khi Windows giảm chuyển động. Bìa chính giữ tỷ lệ, không crop, không phóng to quá 256×256.
 - Lời: ưu tiên `.lrc` cùng tên, rồi cache, rồi LRCLIB (mặc định tắt). Click dòng có timestamp để tua; nút "Theo bài hát" khôi phục bám dòng; chỉnh lệch ±0,5 giây lưu riêng cho từng bài.
 - Theme Hệ thống/Sáng/Tối; DWM bo góc 12 px khi không maximize; tôn trọng cài đặt giảm chuyển động của Windows.
 - Phím: `Space` phát/tạm dừng, `←`/`→` tua ±10 giây, `↑`/`↓` âm lượng, `Esc` đóng lớp đang mở.

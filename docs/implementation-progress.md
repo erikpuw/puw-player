@@ -33,3 +33,5 @@ Plan: docs/superpowers/plans/2026-10-30-puw-player.md
 - Bìa không hiện: một worker decode FIFO bị hàng trăm job thumbnail chặn trước bìa 256px. Tách 2 worker (thumbnail / bìa lớn).
 - Kiểm chứng: chụp cửa sổ thật 1200×680 khi đang phát; 24 test, clippy, fmt xanh. Chưa chụp ở 960 px và theme sáng.
 - Hàng nút theo ảnh chi tiết của người dùng: icon trắng nét dày, prev/next/stop khối đặc, nút phát 70 px, vạch pause dài hơn; núm thời gian/âm lượng luôn hiện 14 px; rãnh sáng hơn; thêm `HDivider` mờ hai đầu trên timeline và trên hàng âm lượng; hàng âm lượng dồn trái; nhãn lặp xanh đậm.
+- Nút lặp: bỏ nhãn "Tắt" (icon xám đã đủ), chỉ hiện "Tất cả"/"Một bài".
+- Cover flow động: `FlowCover` đặt 5 bìa theo vị trí liên tục `p = slot + flow-shift`, nội suy hình học giữa các slot; đổi bài kề trong hàng đợi gọi `start-flow(±1)` từ Rust, `flow-shift` ease-out về 0 (`animation-tick` + `Timer` tắt khi xong để không vẽ lại liên tục). Chọn bài không kề: không trượt. Giảm chuyển động → không trượt. Đã chụp khung giữa hiệu ứng khi Next.

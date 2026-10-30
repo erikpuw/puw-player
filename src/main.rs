@@ -784,6 +784,12 @@ fn load_current(ui: &AppWindow, s: &mut AppState) {
     let Ok(Some(track)) = s.library.track(id) else {
         return;
     };
+    // Slide the cover flow only when the new track sits next to the old one in the queue.
+    let flow_dir = match (s.current_id, s.queue.as_ref()) {
+        (Some(old), Some(queue)) if queue.neighbor(-1) == Some(old) => 1.0,
+        (Some(old), Some(queue)) if queue.neighbor(1) == Some(old) => -1.0,
+        _ => 0.0,
+    };
     s.current_id = Some(id);
     s.generation = s.generation.wrapping_add(1);
     s.ended_generation = u64::MAX;
@@ -800,6 +806,7 @@ fn load_current(ui: &AppWindow, s: &mut AppState) {
     ui.set_position_label("00:00".into());
     ui.set_cover(ensure_cover(s, &track.path, COVER).unwrap_or_default());
     set_neighbor_covers(ui, s);
+    ui.invoke_start_flow(flow_dir);
 
     s.lyric_offset_ms = s.library.lyric_offset(id).unwrap_or(0);
     ui.set_lyric_offset(format!("{:+.1}s", s.lyric_offset_ms as f64 / 1000.0).into());
@@ -1146,7 +1153,8 @@ fn device_label(player: &Player) -> String {
 
 fn repeat_label(mode: RepeatMode) -> &'static str {
     match mode {
-        RepeatMode::Off => "Tắt",
+        // Grey icon already says "off"; label only names the active mode.
+        RepeatMode::Off => "",
         RepeatMode::All => "Tất cả",
         RepeatMode::One => "Một bài",
     }

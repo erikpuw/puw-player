@@ -172,6 +172,53 @@ component PerspectiveCover inherits Rectangle {
     }
 }
 
+// One cover-flow cover at continuous slot position `p` (0 = center, ±1 near, ±2 far, ±3 gone).
+// Geometry interpolates between slot keyframes measured from approved-player.png.
+component FlowCover inherits Rectangle {
+    in property <image> source;
+    in property <float> p;
+    in property <float> side: 1;
+    property <float> a: min(3, abs(p));
+    property <int> seg: a <= 1 ? 0 : (a <= 2 ? 1 : 2);
+    property <float> t: a - seg;
+    // Slot keyframes 0..3: center offset, width, inner/outer edge height, opacity.
+    property <[float]> center-k: [0, 128 + 50 * side, 128 + 131 * side, 128 + 177 * side];
+    property <[float]> width-k: [256, 100 * side, 62 * side, 30 * side];
+    property <[float]> inner-k: [256, 206, 182, 160];
+    property <[float]> outer-k: [256, 230, 204, 180];
+    property <[float]> alpha-k: [1, 0.9, 0.7, 0];
+    pure function at(k: [float]) -> float {
+        k[seg] + (k[seg + 1] - k[seg]) * t
+    }
+    property <length> w: at(width-k) * 1px;
+    property <length> inner: at(inner-k) * 1px;
+    property <length> outer: at(outer-k) * 1px;
+    property <length> cx: self.width / 2 + (p < 0 ? -1 : 1) * at(center-k) * 1px;
+    visible: source.width > 0 && a < 3;
+    opacity: at(alpha-k);
+    z: -a;
+    // At rest the center cover keeps its aspect ratio (contain); moving covers use perspective strips.
+    if root.a < 0.001: Rectangle {
+        x: (root.width - 256px) / 2;
+        y: (root.height - 256px) / 2;
+        width: 256px;
+        height: 256px;
+        border-radius: 6px;
+        clip: true;
+        background: Theme.surface;
+        Image { width: parent.width; height: parent.height; source: root.source; image-fit: contain; }
+    }
+    if root.a >= 0.001: PerspectiveCover {
+        x: root.cx - root.w / 2;
+        y: 0;
+        width: root.w;
+        height: root.height;
+        source: root.source;
+        left-height: root.p < 0 ? root.outer : root.inner;
+        right-height: root.p < 0 ? root.inner : root.outer;
+    }
+}
+
 // Full-width hairline that fades out at both ends.
 component HDivider inherits Rectangle {
     height: 1px;
@@ -530,7 +577,30 @@ export component AppWindow inherits Window {
     in-out property <string> position-label: "00:00";
     in-out property <string> duration-label: "00:00";
     in-out property <string> volume-label: "100%";
-    in-out property <string> repeat-label: "Tắt";
+    in-out property <string> repeat-label: "";
+
+    // Cover-flow slide: flow-shift eases from ±1 to 0 after a track change.
+    property <float> flow-from: 0;
+    property <duration> flow-start;
+    property <bool> flow-active: false;
+    property <duration> flow-duration: Motion.slow * 1.4;
+    property <float> flow-left: flow-active ? 1 - min(1, (animation-tick() - flow-start) / flow-duration) : 0;
+    out property <float> flow-shift: flow-from * flow-left * flow-left * flow-left;
+    // dir: +1 = moved to next (strip slides left), -1 = previous, 0 = jump without slide.
+    public function start-flow(dir: float) {
+        if (dir == 0 || flow-duration <= 0ms) {
+            flow-active = false;
+            return;
+        }
+        flow-from = dir;
+        flow-start = animation-tick();
+        flow-active = true;
+    }
+    flow-timer := Timer {
+        interval: root.flow-duration + 30ms;
+        running: root.flow-active;
+        triggered => { root.flow-active = false; }
+    }
 
     callback window-minimize();
     callback window-maximize();
@@ -783,63 +853,24 @@ export component AppWindow inherits Window {
                         background: transparent;
                         clip: true;
 
-                        // Neighbors as perspective panels beside the main cover, proportions from
-                        // approved-player.png: outer edge taller than the edge next to the main cover.
-                        // `side` shrinks the panels when the column is too narrow to fit them.
+                        // Five slots -2..2 placed by continuous position p = slot + flow-shift.
+                        // Changing track animates flow-shift from ±1 to 0, so the whole strip slides one slot.
                         property <float> side: min(1, max(0, (self.width / 2 - 128px) / 164px));
-                        PerspectiveCover {
-                            x: parent.width / 2 - 128px - 162px * parent.side;
-                            width: 62px * parent.side;
-                            height: parent.height;
-                            source: root.cover-prev2;
-                            left-height: 204px;
-                            right-height: 182px;
-                            opacity: 0.7;
-                        }
-                        PerspectiveCover {
-                            x: parent.width / 2 + 128px + 100px * parent.side;
-                            width: 62px * parent.side;
-                            height: parent.height;
-                            source: root.cover-next2;
-                            left-height: 182px;
-                            right-height: 204px;
-                            opacity: 0.7;
-                        }
-                        PerspectiveCover {
-                            x: parent.width / 2 - 128px - 100px * parent.side;
-                            width: 100px * parent.side;
-                            height: parent.height;
-                            source: root.cover-prev;
-                            left-height: 230px;
-                            right-height: 206px;
-                            opacity: 0.9;
-                        }
-                        PerspectiveCover {
-                            x: parent.width / 2 + 128px;
-                            width: 100px * parent.side;
-                            height: parent.height;
-                            source: root.cover-next;
-                            left-height: 206px;
-                            right-height: 230px;
-                            opacity: 0.9;
-                        }
+                        FlowCover { width: parent.width; height: parent.height; side: parent.side; source: root.cover-prev2; p: -2 + root.flow-shift; }
+                        FlowCover { width: parent.width; height: parent.height; side: parent.side; source: root.cover-prev; p: -1 + root.flow-shift; }
+                        FlowCover { width: parent.width; height: parent.height; side: parent.side; source: root.cover; p: root.flow-shift; }
+                        FlowCover { width: parent.width; height: parent.height; side: parent.side; source: root.cover-next; p: 1 + root.flow-shift; }
+                        FlowCover { width: parent.width; height: parent.height; side: parent.side; source: root.cover-next2; p: 2 + root.flow-shift; }
 
                         Rectangle {
+                            visible: root.cover.width == 0;
                             x: parent.width / 2 - 128px;
                             y: (parent.height - 256px) / 2;
                             width: 256px;
                             height: 256px;
                             border-radius: 6px;
-                            clip: true;
                             background: Theme.surface;
-                            Image {
-                                width: parent.width;
-                                height: parent.height;
-                                source: root.cover;
-                                image-fit: contain;
-                            }
                             VerticalLayout {
-                                visible: root.cover.width == 0;
                                 alignment: center;
                                 spacing: 8px;
                                 Glyph {
