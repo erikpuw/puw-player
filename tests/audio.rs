@@ -1,4 +1,4 @@
-use puw_player::playback::inspect_audio;
+use puw_player::playback::{Quality, TrackInfo, inspect_audio};
 
 #[test]
 fn wav_metadata_and_decode_are_real() {
@@ -20,7 +20,27 @@ fn wav_metadata_and_decode_are_real() {
     assert_eq!(t.sample_rate, 44100);
     assert_eq!(t.channels, 2);
     assert_eq!(t.bits, 16);
+    assert_eq!(t.quality(), Quality::Lossless);
     assert!(inspect_audio(&dir.path().join("missing.wav")).is_err());
     std::fs::write(dir.path().join("bad.mp3"), b"not music").unwrap();
     assert!(inspect_audio(&dir.path().join("bad.mp3")).is_err());
+}
+
+#[test]
+fn quality_tiers_follow_bit_depth_rate_and_codec() {
+    let info = |lossless, bits, sample_rate, bitrate_kbps| TrackInfo {
+        lossless,
+        bits,
+        sample_rate,
+        bitrate_kbps,
+        ..Default::default()
+    };
+    assert_eq!(info(true, 24, 96_000, 4_000).quality(), Quality::HiRes);
+    assert_eq!(info(true, 24, 44_100, 2_000).quality(), Quality::HiRes);
+    assert_eq!(info(true, 16, 88_200, 2_000).quality(), Quality::HiRes);
+    assert_eq!(info(true, 16, 44_100, 1_000).quality(), Quality::Lossless);
+    assert_eq!(
+        info(false, 0, 44_100, 256).quality(),
+        Quality::Lossy { kbps: 256 }
+    );
 }

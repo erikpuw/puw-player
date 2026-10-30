@@ -895,7 +895,7 @@ fn load_current(ui: &AppWindow, s: &mut AppState) {
     ui.set_has_track(true);
     ui.set_now_title(display_title(&track).into());
     ui.set_now_artist(display_artist(&track).into());
-    ui.set_now_source(track.source_label().into());
+    show_source_quality(ui, &track);
     ui.set_duration(track.duration_ms as f32 / 1000.0);
     ui.set_duration_label(format_time(track.duration_ms as f64).into());
     ui.set_position(0.0);
@@ -999,6 +999,34 @@ fn previous_track(ui: &AppWindow, s: &mut AppState) {
     if queue.previous().is_some() {
         load_current(ui, s);
     }
+}
+
+/// Source line + quality badge from a fresh header read, so tracks imported before the
+/// codec details were stored (e.g. ALAC inside .m4a) still show the right figures.
+fn show_source_quality(ui: &AppWindow, track: &Track) {
+    use puw_player::playback::{Quality, inspect_audio};
+    let Ok(info) = inspect_audio(&track.path) else {
+        ui.set_now_source(track.source_label().into());
+        ui.set_now_quality("".into());
+        ui.set_now_quality_tier(0);
+        return;
+    };
+    let fresh = Track {
+        codec: info.codec.clone(),
+        bits: info.bits,
+        sample_rate: info.sample_rate,
+        lossless: info.lossless,
+        ..track.clone()
+    };
+    ui.set_now_source(fresh.source_label().into());
+    let (label, tier) = match info.quality() {
+        Quality::HiRes => ("Hi-Res".to_string(), 3),
+        Quality::Lossless => ("Lossless".to_string(), 2),
+        Quality::Lossy { kbps } if kbps > 0 => (format!("{kbps} kbps"), 1),
+        Quality::Lossy { .. } => (String::new(), 0),
+    };
+    ui.set_now_quality(label.into());
+    ui.set_now_quality_tier(tier);
 }
 
 fn stop_playback(ui: &AppWindow, s: &mut AppState) {

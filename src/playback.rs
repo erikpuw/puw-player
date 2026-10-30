@@ -17,9 +17,34 @@ pub struct TrackInfo {
     pub bits: u16,
     pub codec: String,
     pub lossless: bool,
+    /// Audio bitrate; for lossy files this is the quality figure people know (128/256/320).
+    pub bitrate_kbps: u32,
+}
+
+/// Quality badge shown after the sample rate, using the usual store tiers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Quality {
+    /// Lossless above CD quality: 24-bit or more than 48 kHz.
+    HiRes,
+    Lossless,
+    Lossy {
+        kbps: u32,
+    },
 }
 
 impl TrackInfo {
+    pub fn quality(&self) -> Quality {
+        if !self.lossless {
+            Quality::Lossy {
+                kbps: self.bitrate_kbps,
+            }
+        } else if self.bits >= 24 || self.sample_rate > 48_000 {
+            Quality::HiRes
+        } else {
+            Quality::Lossless
+        }
+    }
+
     pub fn duration_ms(&self) -> u64 {
         (self.duration * 1000.0).round() as u64
     }
@@ -29,13 +54,23 @@ pub fn inspect_audio(path: &Path) -> Result<TrackInfo, String> {
     let tagged = lofty::read_from_path(path).map_err(|e| e.to_string())?;
     let properties = tagged.properties();
     let file_type = tagged.file_type();
+    let bits = properties.bit_depth().map(u16::from).unwrap_or(0);
+    // An .m4a holds either AAC (lossy, no bit depth) or ALAC (lossless, has a bit depth);
+    // name the codec, not the container.
+    let alac = file_type == FileType::Mp4 && bits > 0;
+    let codec = match file_type {
+        FileType::Mp4 if alac => "alac",
+        FileType::Mp4 => "aac",
+        other => codec_name(other),
+    };
     Ok(TrackInfo {
         duration: properties.duration().as_secs_f64(),
         sample_rate: properties.sample_rate().unwrap_or(0),
         channels: properties.channels().map(u16::from).unwrap_or(0),
-        bits: properties.bit_depth().map(u16::from).unwrap_or(0),
-        codec: codec_name(file_type).to_owned(),
-        lossless: is_lossless(file_type),
+        bits,
+        codec: codec.to_owned(),
+        lossless: alac || is_lossless(file_type),
+        bitrate_kbps: properties.audio_bitrate().unwrap_or(0),
     })
 }
 
@@ -71,7 +106,6 @@ fn codec_name(file_type: FileType) -> &'static str {
         FileType::Ape => "ape",
         FileType::Flac => "flac",
         FileType::Mpeg => "mp3",
-        FileType::Mp4 => "m4a",
         FileType::Mpc => "mpc",
         FileType::Opus => "opus",
         FileType::Vorbis => "vorbis",
