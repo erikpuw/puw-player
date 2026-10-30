@@ -192,6 +192,7 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.show()?;
     apply_border_style(&ui, false);
     let res = ui.run();
+    // The only shutdown path: fades the track, lets the device tail decay, closes the stream.
     state.borrow_mut().player.shutdown();
     res
 }
@@ -249,17 +250,10 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
         ui.set_window_maximized(maximized);
         apply_border_style(ui, maximized);
     });
-    on!(on_window_close, |ui, s| {
-        ui.set_playing(false);
-        s.player.shutdown();
+    // Hiding the last window ends `ui.run()`; `main` then shuts the player down, so the
+    // window disappears at once while audio winds down (Alt+F4 and the taskbar go the same way).
+    on!(on_window_close, |ui, _s| {
         let _ = ui.window().hide();
-    });
-    let close_state = state.clone();
-    ui.window().on_close_requested(move || {
-        if let Ok(mut s) = close_state.try_borrow_mut() {
-            s.player.shutdown();
-        }
-        slint::CloseRequestResponse::HideWindow
     });
     on!(on_dismiss_status, |ui, s| {
         ui.set_has_status(false);

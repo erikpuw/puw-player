@@ -371,18 +371,33 @@ pub struct RodioOutput {
     volume: f32,
 }
 
+/// After the last audible sample, keep feeding silence this long before closing the stream.
+/// Driver-level effects (Dolby on laptops) hold a reverb/virtualizer tail; closing the stream
+/// mid-tail leaves it in the device and it comes out as a click when the next stream opens.
+const CLOSE_TAIL: Duration = Duration::from_millis(350);
+
 impl RodioOutput {
+    /// Reads the default device format without opening a stream: the device stays asleep
+    /// until the first track plays, so launching the app makes no sound at all.
     pub fn new() -> Result<Self, String> {
-        let mut out = Self {
+        use rodio::cpal::traits::{DeviceTrait, HostTrait};
+        let config = rodio::cpal::default_host()
+            .default_output_device()
+            .and_then(|device| device.default_output_config().ok())
+            .ok_or_else(|| {
+                tr(
+                    "Không có thiết bị âm thanh khả dụng",
+                    "No audio device available",
+                )
+            })?;
+        Ok(Self {
             stream: None,
             sink: None,
-            device: None,
+            device: Some((config.sample_rate().0, config.channels())),
             path: None,
             duration_ms: 0,
             volume: 1.0,
-        };
-        out.ensure_stream()?;
-        Ok(out)
+        })
     }
 
     fn ensure_stream(&mut self) -> Result<&rodio::OutputStream, String> {
@@ -400,9 +415,10 @@ impl RodioOutput {
             let cfg = stream.config();
             self.device = Some((cfg.sample_rate(), cfg.channel_count()));
             // Keep a silent Zero source attached so the mixer stays warm with continuous 0.0 samples.
-            stream
-                .mixer()
-                .add(rodio::source::Zero::new(cfg.channel_count(), cfg.sample_rate()));
+            stream.mixer().add(rodio::source::Zero::new(
+                cfg.channel_count(),
+                cfg.sample_rate(),
+            ));
             self.stream = Some(stream);
         }
         Ok(self.stream.as_ref().expect("stream initialized"))
@@ -576,7 +592,8 @@ impl AudioOutput for RodioOutput {
     fn shutdown(&mut self) {
         self.silence_and_drop_sink();
         if self.stream.is_some() {
-            std::thread::sleep(Duration::from_millis(25));
+            // The mixer's Zero source keeps the stream running on silence meanwhile.
+            std::thread::sleep(CLOSE_TAIL);
             self.stream = None;
         }
     }
