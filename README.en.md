@@ -55,6 +55,7 @@ cargo build --release
 ```
 
 The app is `target/release/puw-player.exe`. The library starts empty; add music with the **+** button at the top. Data (library, playlists, settings, saved lyrics) lives in `%APPDATA%\puw-player\library.db`.
+The exe carries the icon and version info (Properties → Details) taken from `version` in `Cargo.toml`. It is not code-signed, so SmartScreen or antivirus may still warn after a download; tick Properties → **Unblock** on the zip before extracting.
 
 ## Development
 

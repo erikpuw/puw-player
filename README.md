@@ -55,6 +55,7 @@ cargo build --release
 ```
 
 File chạy: `target/release/puw-player.exe`. Lần đầu thư viện trống; thêm nhạc bằng nút **+** ở góc trên. Dữ liệu (thư viện, playlist, cài đặt, lời đã tải) nằm trong `%APPDATA%\puw-player\library.db`.
+Exe mang icon và thông tin phiên bản (Properties → Details) lấy từ `version` trong `Cargo.toml`. Exe chưa ký số nên khi gửi qua mạng, SmartScreen hoặc antivirus vẫn có thể cảnh báo; khách bấm Properties → **Unblock** trên file zip trước khi giải nén.
 
 ## Phát triển
 
