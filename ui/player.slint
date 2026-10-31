@@ -1617,7 +1617,7 @@ export component AppWindow inherits Window {
                                 x: 0;
                                 y: 0;
                                 width: parent.width;
-                                height: 58px;
+                                height: 50px;
                                 background: transparent;
                                 HorizontalLayout {
                                     width: parent.width;
@@ -1671,13 +1671,13 @@ export component AppWindow inherits Window {
                             }
                             Rectangle {
                                 x: 0;
-                                y: 59px;
+                                y: 50px;
                                 width: parent.width;
-                                height: parent.height - 59px;
+                                height: parent.height - 50px;
                                 background: transparent;
                                 SearchBox {
                                     x: 0;
-                                    y: 8px;
+                                    y: 0;
                                     width: parent.width;
                                     text <=> root.playlist-search-text;
                                     changed(text) => { root.playlist-search-changed(text); }
@@ -1685,9 +1685,9 @@ export component AppWindow inherits Window {
                                 }
                                 playlist-songs-list := ListView {
                                     x: 0;
-                                    y: 50px;
+                                    y: 42px;
                                     width: parent.width;
-                                    height: parent.height - 50px;
+                                    height: parent.height - 42px;
                                     for row[ti] in (root.lists-ready ? root.playlist-tracks : []) : TrackListItem {
                                         title: row.title;
                                         artist: row.artist;
@@ -1704,7 +1704,7 @@ export component AppWindow inherits Window {
                                 }
                                 ScrollEdgeFade {
                                     x: 0;
-                                    y: 50px;
+                                    y: 42px;
                                     width: parent.width;
                                     top: true;
                                     shown: -playlist-songs-list.content-y > 2px;
@@ -1718,7 +1718,7 @@ export component AppWindow inherits Window {
                                 }
                                 Text {
                                     x: 4px;
-                                    y: 62px;
+                                    y: 54px;
                                     width: parent.width - 8px;
                                     text: root.playlist-search-text != "" ? I18n.t("Không tìm thấy bài nào.", "No matching songs.") : I18n.t("Playlist trống.", "This playlist is empty.");
                                     visible: root.playlist-tracks.length == 0;
