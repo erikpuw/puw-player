@@ -179,6 +179,29 @@ component IconButton inherits Rectangle {
     }
 }
 
+// Cover-flow side panel. Slint has no 3D transform, so the image is drawn as thin
+// vertical strips whose height interpolates between the two edges -> a perspective trapezoid.
+component PerspectiveCover inherits Rectangle {
+    in property <image> source;
+    in property <length> left-height;
+    in property <length> right-height;
+    property <int> strips: 20;
+    visible: source.width > 0;
+    for _s[i] in root.strips: Image {
+        property <float> t: (i + 0.5) / root.strips;
+        x: root.width * i / root.strips;
+        width: root.width / root.strips + 1px;
+        height: root.left-height + (root.right-height - root.left-height) * t;
+        y: (root.height - self.height) / 2;
+        source: root.source;
+        source-clip-x: floor(root.source.width * i / root.strips);
+        source-clip-y: 0;
+        source-clip-width: max(1, floor(root.source.width / root.strips));
+        source-clip-height: root.source.height;
+        image-fit: fill;
+    }
+}
+
 // One cover-flow cover at continuous slot position `p` (0 = center, ±1 near, ±2 far, ±3 gone).
 // Geometry interpolates between slot keyframes measured from approved-player.png.
 component FlowCover inherits Rectangle {
@@ -204,8 +227,7 @@ component FlowCover inherits Rectangle {
     visible: source.width > 0 && a < 3;
     opacity: at(alpha-k);
     z: -a;
-    // At rest the center cover keeps its aspect ratio (contain, rounded); side covers are one flat image.
-    // A strip-built trapezoid flickers under the software renderer.
+    // At rest the center cover keeps its aspect ratio (contain); moving covers use perspective strips.
     if root.a < 0.001: Rectangle {
         x: (root.width - 256px) / 2;
         y: (root.height - 256px) / 2;
@@ -216,13 +238,14 @@ component FlowCover inherits Rectangle {
         background: Theme.surface;
         Image { width: parent.width; height: parent.height; source: root.source; image-fit: contain; }
     }
-    if root.a >= 0.001: Image {
-        x: root.cx - abs(root.w) / 2;
-        y: (root.height - self.height) / 2;
-        width: abs(root.w);
-        height: (root.inner + root.outer) / 2;
+    if root.a >= 0.001: PerspectiveCover {
+        x: root.cx - root.w / 2;
+        y: 0;
+        width: root.w;
+        height: root.height;
         source: root.source;
-        image-fit: contain;
+        left-height: root.p < 0 ? root.outer : root.inner;
+        right-height: root.p < 0 ? root.inner : root.outer;
     }
 }
 
