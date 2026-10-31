@@ -60,6 +60,7 @@ struct AppState {
     current_id: Option<i64>,
     settings: Settings,
     library_tracks: Vec<Track>,
+    search: String,
     playlist_tracks: Vec<Track>,
     playlists: Vec<Playlist>,
     lyrics: Vec<LyricLine>,
@@ -125,6 +126,7 @@ fn main() -> Result<(), slint::PlatformError> {
         current_id: None,
         settings: Settings::default(),
         library_tracks: Vec::new(),
+        search: String::new(),
         playlist_tracks: Vec::new(),
         playlists: Vec::new(),
         lyrics: Vec::new(),
@@ -308,6 +310,16 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
         s.player.send(PlaybackCommand::Volume(volume));
         ui.set_volume(volume);
         ui.set_volume_label(format!("{}%", (volume * 100.0).round() as i32).into());
+    });
+
+    let weak = handle.clone();
+    let state_rc = state.clone();
+    ui.on_search_changed(move |text| {
+        let Some(ui) = weak.upgrade() else { return };
+        let mut s = state_rc.borrow_mut();
+        s.search = text.trim().to_string();
+        refresh_library(&ui, &mut s);
+        ui.set_selected_track(ui.get_current_track());
     });
 
     let weak = handle.clone();
@@ -807,7 +819,15 @@ fn drain_import(ui: &AppWindow, s: &mut AppState) {
 }
 
 fn refresh_library(ui: &AppWindow, s: &mut AppState) {
+    // library_tracks is what the list shows: row indices from the UI index it directly.
+    let query = s.search.to_lowercase();
     s.library_tracks = s.library.tracks(None).unwrap_or_default();
+    if !query.is_empty() {
+        s.library_tracks.retain(|track| {
+            display_title(track).to_lowercase().contains(&query)
+                || display_artist(track).to_lowercase().contains(&query)
+        });
+    }
     let tracks = s.library_tracks.clone();
     let rows: Vec<TrackRow> = tracks.iter().map(|track| make_row(s, track)).collect();
     s.tracks_model.set_vec(rows);

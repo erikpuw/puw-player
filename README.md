@@ -13,6 +13,7 @@ Puw Player phát **nhạc có sẵn trên máy bạn**. Không stream, không t�
 | Thư viện | Thêm tệp hoặc cả thư mục. Chỉ lưu đường dẫn, không sao chép, di chuyển hay xóa file gốc. Xóa bài khỏi thư viện (nút thùng rác trên dòng) hoặc dọn mọi bài không còn file (Cài đặt → Dọn bài lỗi); file nhạc không bị xóa. |
 | Phát nhạc | Phát/tạm dừng, dừng, bài trước/sau, tua ±10 giây, kéo thanh thời gian, âm lượng. |
 | Hàng đợi | Shuffle không lặp bài, Previous quay đúng bài vừa nghe. Lặp: tắt / tất cả / một bài. |
+| Tìm bài | Ô tìm ở tab Bài hát, lọc nhanh theo tên bài hoặc nghệ sĩ. |
 | Playlist | Tạo, đổi tên, xóa. Thêm bài từ tab Bài hát, bỏ bài khỏi playlist. Xóa playlist không xóa file nhạc. |
 | Chất lượng | Sau thông số nguồn có huy hiệu: **Hi-Res Lossless** (lossless 24-bit hoặc trên 48 kHz), **Lossless** (FLAC, ALAC, WAV…), hoặc bitrate cho file nén (vd. 320 kbps). Bản phát hành ghi "Dolby Atmos"/"Binaural" trong tên có thêm nhãn kèm icon tai nghe. |
 | Cover flow | Bìa đang phát ở giữa, 2 bìa mỗi bên theo hàng đợi, trượt khi chuyển bài. |

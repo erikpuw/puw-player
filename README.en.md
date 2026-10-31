@@ -13,6 +13,7 @@ Puw Player plays **music that is already on your computer**. No streaming, no ac
 | Library | Add files or whole folders. Only paths are stored; your files are never copied, moved or deleted. Remove a song from the library (trash button on the row) or clean up every song whose file is gone (Settings → Clean up broken songs); music files stay on disk. |
 | Playback | Play/pause, stop, previous/next, ±10 s seek, draggable timeline, volume. |
 | Queue | Shuffle without repeats, Previous returns to the song you just heard. Repeat: off / all / one. |
+| Search | Box on the Songs tab filters by title or artist as you type. |
 | Playlists | Create, rename, delete. Add songs from the Songs tab, remove songs from a playlist. Deleting a playlist never deletes music files. |
 | Quality | A badge after the source details: **Hi-Res Lossless** (lossless 24-bit or above 48 kHz), **Lossless** (FLAC, ALAC, WAV…), or the bitrate for compressed files (e.g. 320 kbps). Releases named "Dolby Atmos"/"Binaural" get an extra label with a headphones icon. |
 | Cover flow | Current cover in the middle, two covers on each side from the queue, sliding when the track changes. |

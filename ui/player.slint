@@ -714,6 +714,8 @@ export component AppWindow inherits Window {
     // ("long callback/instantiation chain detected"). Rust sets this once the window is shown.
     in-out property <bool> lists-ready: false;
     in-out property <string> dialog-text;
+    in-out property <string> search-text;
+    callback search-changed(string);
     in-out property <string> dialog-title;
     in-out property <string> status-message;
     in-out property <bool> has-status;
@@ -1436,11 +1438,62 @@ export component AppWindow inherits Window {
                         height: parent.height - 46px;
                         background: transparent;
                         visible: root.tab == 0 && !root.lyrics-visible && !root.settings-visible;
-                        songs-list := ListView {
+                        Rectangle {
                             x: 0;
                             y: 0;
                             width: parent.width;
-                            height: parent.height;
+                            height: 34px;
+                            border-radius: 8px;
+                            background: Theme.bg;
+                            border-width: 1px;
+                            border-color: search-input.has-focus ? Theme.accent : Theme.line;
+                            accessible-role: text-input;
+                            accessible-label: I18n.t("Tìm bài hát", "Search songs");
+                            Text {
+                                x: 12px;
+                                width: parent.width - 48px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                text: I18n.t("Tìm bài hát…", "Search songs…");
+                                visible: root.search-text == "";
+                                color: Theme.muted;
+                                font-size: 13px;
+                            }
+                            search-input := TextInput {
+                                x: 12px;
+                                width: parent.width - 48px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                text <=> root.search-text;
+                                color: Theme.text;
+                                font-size: 13px;
+                                single-line: true;
+                                edited => { root.search-changed(self.text); }
+                                // Enter or Esc hands the keyboard shortcuts (Space, arrows) back to the player.
+                                accepted => { app-focus.focus(); }
+                                key-pressed(event) => {
+                                    if (event.text == Key.Escape) { app-focus.focus(); return EventResult.accept; }
+                                    return EventResult.reject;
+                                }
+                            }
+                            IconButton {
+                                x: parent.width - 32px;
+                                y: (parent.height - self.height) / 2;
+                                visible: root.search-text != "";
+                                icon: Icons.close;
+                                label: I18n.t("Xóa tìm kiếm", "Clear search");
+                                icon-size: 14px;
+                                clicked => {
+                                    root.search-text = "";
+                                    root.search-changed("");
+                                }
+                            }
+                        }
+                        songs-list := ListView {
+                            x: 0;
+                            y: 42px;
+                            width: parent.width;
+                            height: parent.height - 42px;
                             for row[i] in (root.lists-ready ? root.tracks : []) : TrackListItem {
                                 title: row.title;
                                 artist: row.artist;
@@ -1466,7 +1519,7 @@ export component AppWindow inherits Window {
                         }
                         ScrollEdgeFade {
                             x: 0;
-                            y: 0;
+                            y: 42px;
                             width: parent.width;
                             top: true;
                             shown: -songs-list.content-y > 2px;
@@ -1480,9 +1533,9 @@ export component AppWindow inherits Window {
                         }
                         Text {
                             x: 4px;
-                            y: 14px;
+                            y: 56px;
                             width: parent.width - 8px;
-                            text: I18n.t("Chưa có bài hát. Thêm tệp hoặc thư mục ở góc trên.", "No songs yet. Add files or a folder with the + button at the top.");
+                            text: root.search-text != "" ? I18n.t("Không tìm thấy bài nào.", "No matching songs.") : I18n.t("Chưa có bài hát. Thêm tệp hoặc thư mục ở góc trên.", "No songs yet. Add files or a folder with the + button at the top.");
                             visible: root.tracks.length == 0;
                             wrap: word-wrap;
                             color: Theme.muted;
