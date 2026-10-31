@@ -1741,9 +1741,9 @@ export component AppWindow inherits Window {
                     // Lyrics pane
                     Rectangle {
                         x: 16px;
-                        y: 0;
+                        y: -12px;
                         width: parent.width - 20px;
-                        height: parent.height;
+                        height: parent.height + 12px;
                         background: transparent;
                         visible: root.lyrics-visible && !root.settings-visible;
 
@@ -1891,9 +1891,9 @@ export component AppWindow inherits Window {
                     // Settings
                     Rectangle {
                         x: 16px;
-                        y: 0;
+                        y: -14px;
                         width: parent.width - 20px;
-                        height: parent.height;
+                        height: parent.height + 14px;
                         background: transparent;
                         visible: root.settings-visible;
                         // `start` keeps rows at their natural height instead of sharing out the spare space.
@@ -2090,11 +2090,15 @@ export component AppWindow inherits Window {
                                 font-size: 12px;
                                 wrap: word-wrap;
                             }
-                            Text {
-                                text: "Puw Player v" + root.app-version;
-                                color: Theme.muted;
-                                font-size: 12px;
-                            }
+                        }
+                        Text {
+                            x: 0;
+                            y: parent.height - 26px;
+                            width: parent.width;
+                            text: "Puw Player v" + root.app-version;
+                            color: Theme.muted;
+                            font-size: 12px;
+                            horizontal-alignment: right;
                         }
                     }
                 }
