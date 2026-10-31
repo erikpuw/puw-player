@@ -92,6 +92,7 @@ struct AppState {
 
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
+    ui.set_app_version(env!("CARGO_PKG_VERSION").into());
     let db_path = data_dir().join("library.db");
     let library = match Library::open(&db_path) {
         Ok(library) => library,

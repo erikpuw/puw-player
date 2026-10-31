@@ -772,6 +772,7 @@ export component AppWindow inherits Window {
     in-out property <string> playlist-search-text;
     callback playlist-search-changed(string);
     in-out property <string> dialog-title;
+    in property <string> app-version;
     in-out property <string> status-message;
     in-out property <bool> has-status;
     in-out property <bool> importing;
@@ -2095,6 +2096,11 @@ export component AppWindow inherits Window {
                                 color: Theme.muted;
                                 font-size: 12px;
                                 wrap: word-wrap;
+                            }
+                            Text {
+                                text: "Puw Player v" + root.app-version;
+                                color: Theme.muted;
+                                font-size: 12px;
                             }
                         }
                     }

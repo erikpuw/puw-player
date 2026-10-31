@@ -4000,7 +4000,7 @@ dependencies = [
 
 [[package]]
 name = "puw-player"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "hound",
  "image",
