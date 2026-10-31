@@ -434,7 +434,7 @@ component TabHeader inherits Rectangle {
     in property <string> text;
     in property <bool> selected;
     callback clicked();
-    min-height: 44px;
+    min-height: 32px;
     min-width: label.preferred-width;
     horizontal-stretch: 0;
     accessible-role: button;
@@ -1453,9 +1453,9 @@ export component AppWindow inherits Window {
 
                     Rectangle {
                         x: 16px;
-                        y: 0;
+                        y: -6px;
                         width: parent.width - 20px;
-                        height: 46px;
+                        height: 32px;
                         background: transparent;
                         visible: !root.settings-visible && !root.lyrics-visible;
                         HorizontalLayout {
@@ -1489,9 +1489,9 @@ export component AppWindow inherits Window {
 
                     Rectangle {
                         x: 16px;
-                        y: 46px;
+                        y: 28px;
                         width: parent.width - 20px;
-                        height: parent.height - 46px;
+                        height: parent.height - 28px;
                         background: transparent;
                         visible: root.tab == 0 && !root.lyrics-visible && !root.settings-visible;
                         SearchBox {
@@ -1558,9 +1558,9 @@ export component AppWindow inherits Window {
 
                     Rectangle {
                         x: 16px;
-                        y: 46px;
+                        y: 28px;
                         width: parent.width - 20px;
-                        height: parent.height - 46px;
+                        height: parent.height - 28px;
                         background: transparent;
                         visible: root.tab == 1 && !root.lyrics-visible && !root.settings-visible;
 
