@@ -23,6 +23,8 @@ slint::include_modules!();
 
 const THUMB: u32 = 96;
 const COVER: u32 = 256;
+/// Full-size covers kept in memory (current, neighbours and a few recent).
+const MAX_COVERS: usize = 16;
 
 struct CoverJob {
     path: PathBuf,
@@ -716,8 +718,23 @@ fn drain_covers(ui: &AppWindow, s: &mut AppState) {
         } else {
             None
         };
-        s.covers
-            .insert((result.path.clone(), result.max), image.clone());
+        let key = (result.path.clone(), result.max);
+        s.covers.insert(key.clone(), image.clone());
+        // Thumbs are bounded by the library; full-size covers pile up with every song played.
+        // ponytail: evicts arbitrary entries, a neighbour cover may reload once; LRU if that shows.
+        if result.max == COVER {
+            let stale: Vec<_> = s
+                .covers
+                .keys()
+                .filter(|k| k.1 == COVER && **k != key)
+                .skip(MAX_COVERS)
+                .cloned()
+                .collect();
+            for k in stale {
+                s.covers.remove(&k);
+                s.pending_covers.remove(&k);
+            }
+        }
         if let Some(image) = image {
             for (index, track) in s.library_tracks.iter().enumerate() {
                 if track.path == result.path && result.max == THUMB {
