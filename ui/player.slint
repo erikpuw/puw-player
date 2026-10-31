@@ -189,10 +189,11 @@ component PerspectiveCover inherits Rectangle {
     visible: source.width > 0;
     for _s[i] in root.strips: Image {
         property <float> t: (i + 0.5) / root.strips;
-        x: root.width * i / root.strips;
-        width: root.width / root.strips + 1px;
-        height: root.left-height + (root.right-height - root.left-height) * t;
-        y: (root.height - self.height) / 2;
+        // Whole pixels only: fractional strip edges shimmer under the software renderer.
+        x: round(root.width * i / root.strips / 1px) * 1px;
+        width: round((root.width / root.strips + 1px) / 1px) * 1px;
+        height: round((root.left-height + (root.right-height - root.left-height) * t) / 1px) * 1px;
+        y: round((root.height - self.height) / 2 / 1px) * 1px;
         source: root.source;
         source-clip-x: floor(root.source.width * i / root.strips);
         source-clip-y: 0;
