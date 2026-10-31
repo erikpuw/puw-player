@@ -61,6 +61,7 @@ struct AppState {
     settings: Settings,
     library_tracks: Vec<Track>,
     search: String,
+    playlist_search: String,
     playlist_tracks: Vec<Track>,
     playlists: Vec<Playlist>,
     lyrics: Vec<LyricLine>,
@@ -127,6 +128,7 @@ fn main() -> Result<(), slint::PlatformError> {
         settings: Settings::default(),
         library_tracks: Vec::new(),
         search: String::new(),
+        playlist_search: String::new(),
         playlist_tracks: Vec::new(),
         playlists: Vec::new(),
         lyrics: Vec::new(),
@@ -320,6 +322,16 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
         s.search = text.trim().to_string();
         refresh_library(&ui, &mut s);
         ui.set_selected_track(ui.get_current_track());
+    });
+
+    let weak = handle.clone();
+    let state_rc = state.clone();
+    ui.on_playlist_search_changed(move |text| {
+        let Some(ui) = weak.upgrade() else { return };
+        let mut s = state_rc.borrow_mut();
+        s.playlist_search = text.trim().to_string();
+        refresh_playlist_tracks(&ui, &mut s);
+        highlight_current_in_playlist(&ui, &s);
     });
 
     let weak = handle.clone();
@@ -822,16 +834,18 @@ fn refresh_library(ui: &AppWindow, s: &mut AppState) {
     // library_tracks is what the list shows: row indices from the UI index it directly.
     let query = s.search.to_lowercase();
     s.library_tracks = s.library.tracks(None).unwrap_or_default();
-    if !query.is_empty() {
-        s.library_tracks.retain(|track| {
-            display_title(track).to_lowercase().contains(&query)
-                || display_artist(track).to_lowercase().contains(&query)
-        });
-    }
+    s.library_tracks.retain(|track| matches_query(track, &query));
     let tracks = s.library_tracks.clone();
     let rows: Vec<TrackRow> = tracks.iter().map(|track| make_row(s, track)).collect();
     s.tracks_model.set_vec(rows);
     highlight_current(ui, s);
+}
+
+/// `query` is already lowercased; empty matches everything.
+fn matches_query(track: &Track, query: &str) -> bool {
+    query.is_empty()
+        || display_title(track).to_lowercase().contains(query)
+        || display_artist(track).to_lowercase().contains(query)
 }
 
 fn refresh_playlists(ui: &AppWindow, s: &mut AppState) {
@@ -871,6 +885,8 @@ fn refresh_playlist_tracks(ui: &AppWindow, s: &mut AppState) {
         return;
     };
     s.playlist_tracks = s.library.tracks(Some(playlist.id)).unwrap_or_default();
+    let query = s.playlist_search.to_lowercase();
+    s.playlist_tracks.retain(|track| matches_query(track, &query));
     let tracks = s.playlist_tracks.clone();
     let rows: Vec<TrackRow> = tracks.iter().map(|track| make_row(s, track)).collect();
     s.playlist_model.set_vec(rows);
@@ -932,6 +948,15 @@ fn highlight_current(ui: &AppWindow, s: &mut AppState) {
         .map(|index| index as i32)
         .unwrap_or(-1);
     ui.set_current_track(current);
+}
+
+fn highlight_current_in_playlist(ui: &AppWindow, s: &AppState) {
+    let current = s
+        .current_id
+        .and_then(|id| s.playlist_tracks.iter().position(|track| track.id == id))
+        .map(|index| index as i32)
+        .unwrap_or(-1);
+    ui.set_current_playlist_track(current);
 }
 
 /// UI code for the repeat button: 0 off, 1 all, 2 one.
@@ -1017,13 +1042,7 @@ fn load_current(ui: &AppWindow, s: &mut AppState) {
     }
 
     highlight_current(ui, s);
-    let playlist_index = s
-        .playlist_tracks
-        .iter()
-        .position(|candidate| candidate.id == id)
-        .map(|index| index as i32)
-        .unwrap_or(-1);
-    ui.set_current_playlist_track(playlist_index);
+    highlight_current_in_playlist(ui, s);
     let position = s
         .queue
         .as_ref()
@@ -1309,6 +1328,8 @@ fn select_playlist(ui: &AppWindow, s: &mut AppState, index: i32) {
         return;
     }
     ui.set_current_playlist(index);
+    s.playlist_search.clear();
+    ui.set_playlist_search_text("".into());
     refresh_playlist_tracks(ui, s);
 }
 

@@ -477,6 +477,58 @@ component TabHeader inherits Rectangle {
     }
 }
 
+component SearchBox inherits Rectangle {
+    in-out property <string> text;
+    callback changed(string);
+    // Enter or Esc: hand the keyboard shortcuts (Space, arrows) back to the player.
+    callback leave();
+    height: 34px;
+    border-radius: 8px;
+    background: Theme.bg;
+    border-width: 1px;
+    border-color: input.has-focus ? Theme.accent : Theme.line;
+    accessible-role: text-input;
+    accessible-label: I18n.t("Tìm bài hát", "Search songs");
+    Text {
+        x: 12px;
+        width: parent.width - 48px;
+        height: parent.height;
+        vertical-alignment: center;
+        text: I18n.t("Tìm bài hát…", "Search songs…");
+        visible: root.text == "";
+        color: Theme.muted;
+        font-size: 13px;
+    }
+    input := TextInput {
+        x: 12px;
+        width: parent.width - 48px;
+        height: parent.height;
+        vertical-alignment: center;
+        text <=> root.text;
+        color: Theme.text;
+        font-size: 13px;
+        single-line: true;
+        edited => { root.changed(self.text); }
+        accepted => { root.leave(); }
+        key-pressed(event) => {
+            if (event.text == Key.Escape) { root.leave(); return EventResult.accept; }
+            return EventResult.reject;
+        }
+    }
+    IconButton {
+        x: parent.width - 32px;
+        y: (parent.height - self.height) / 2;
+        visible: root.text != "";
+        icon: Icons.close;
+        label: I18n.t("Xóa tìm kiếm", "Clear search");
+        icon-size: 14px;
+        clicked => {
+            root.text = "";
+            root.changed("");
+        }
+    }
+}
+
 component TrackListItem inherits Rectangle {
     in property <string> title;
     in property <string> artist;
@@ -716,6 +768,8 @@ export component AppWindow inherits Window {
     in-out property <string> dialog-text;
     in-out property <string> search-text;
     callback search-changed(string);
+    in-out property <string> playlist-search-text;
+    callback playlist-search-changed(string);
     in-out property <string> dialog-title;
     in-out property <string> status-message;
     in-out property <bool> has-status;
@@ -1438,56 +1492,13 @@ export component AppWindow inherits Window {
                         height: parent.height - 46px;
                         background: transparent;
                         visible: root.tab == 0 && !root.lyrics-visible && !root.settings-visible;
-                        Rectangle {
+                        SearchBox {
                             x: 0;
                             y: 0;
                             width: parent.width;
-                            height: 34px;
-                            border-radius: 8px;
-                            background: Theme.bg;
-                            border-width: 1px;
-                            border-color: search-input.has-focus ? Theme.accent : Theme.line;
-                            accessible-role: text-input;
-                            accessible-label: I18n.t("Tìm bài hát", "Search songs");
-                            Text {
-                                x: 12px;
-                                width: parent.width - 48px;
-                                height: parent.height;
-                                vertical-alignment: center;
-                                text: I18n.t("Tìm bài hát…", "Search songs…");
-                                visible: root.search-text == "";
-                                color: Theme.muted;
-                                font-size: 13px;
-                            }
-                            search-input := TextInput {
-                                x: 12px;
-                                width: parent.width - 48px;
-                                height: parent.height;
-                                vertical-alignment: center;
-                                text <=> root.search-text;
-                                color: Theme.text;
-                                font-size: 13px;
-                                single-line: true;
-                                edited => { root.search-changed(self.text); }
-                                // Enter or Esc hands the keyboard shortcuts (Space, arrows) back to the player.
-                                accepted => { app-focus.focus(); }
-                                key-pressed(event) => {
-                                    if (event.text == Key.Escape) { app-focus.focus(); return EventResult.accept; }
-                                    return EventResult.reject;
-                                }
-                            }
-                            IconButton {
-                                x: parent.width - 32px;
-                                y: (parent.height - self.height) / 2;
-                                visible: root.search-text != "";
-                                icon: Icons.close;
-                                label: I18n.t("Xóa tìm kiếm", "Clear search");
-                                icon-size: 14px;
-                                clicked => {
-                                    root.search-text = "";
-                                    root.search-changed("");
-                                }
-                            }
+                            text <=> root.search-text;
+                            changed(text) => { root.search-changed(text); }
+                            leave => { app-focus.focus(); }
                         }
                         songs-list := ListView {
                             x: 0;
@@ -1669,11 +1680,19 @@ export component AppWindow inherits Window {
                                 width: parent.width;
                                 height: parent.height - 59px;
                                 background: transparent;
+                                SearchBox {
+                                    x: 0;
+                                    y: 8px;
+                                    width: parent.width;
+                                    text <=> root.playlist-search-text;
+                                    changed(text) => { root.playlist-search-changed(text); }
+                                    leave => { app-focus.focus(); }
+                                }
                                 playlist-songs-list := ListView {
                                     x: 0;
-                                    y: 0;
+                                    y: 50px;
                                     width: parent.width;
-                                    height: parent.height;
+                                    height: parent.height - 50px;
                                     for row[ti] in (root.lists-ready ? root.playlist-tracks : []) : TrackListItem {
                                         title: row.title;
                                         artist: row.artist;
@@ -1690,7 +1709,7 @@ export component AppWindow inherits Window {
                                 }
                                 ScrollEdgeFade {
                                     x: 0;
-                                    y: 0;
+                                    y: 50px;
                                     width: parent.width;
                                     top: true;
                                     shown: -playlist-songs-list.content-y > 2px;
@@ -1704,9 +1723,9 @@ export component AppWindow inherits Window {
                                 }
                                 Text {
                                     x: 4px;
-                                    y: 10px;
+                                    y: 62px;
                                     width: parent.width - 8px;
-                                    text: I18n.t("Playlist trống.", "This playlist is empty.");
+                                    text: root.playlist-search-text != "" ? I18n.t("Không tìm thấy bài nào.", "No matching songs.") : I18n.t("Playlist trống.", "This playlist is empty.");
                                     visible: root.playlist-tracks.length == 0;
                                     color: Theme.muted;
                                     font-size: 13px;
