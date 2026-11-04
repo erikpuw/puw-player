@@ -6,6 +6,8 @@
 
 Puw Player plays **music that is already on your computer**. No streaming, no account, no subscription, no ties to Spotify, Apple Music or any other platform. The only network use is looking up **lyrics** for songs you already have (LRCLIB, off by default).
 
+> **Download only from the author's source.** Puw Player is published by its author (erikpuw) only at [github.com/erikpuw/puw-player](https://github.com/erikpuw/puw-player). A copy from anywhere else (file-sharing sites, other repositories, repackaged builds, files sent over the internet) is not controlled by the author and comes with no guarantee: it may have been modified or had code added. Use only the build in this repository's [Releases](https://github.com/erikpuw/puw-player/releases).
+
 ## Features
 
 | Area | What you get |
@@ -56,7 +58,7 @@ cargo build --release
 ```
 
 The app is `target/release/puw-player.exe`. The library starts empty; add music with the **+** button at the top. Data (library, playlists, settings, saved lyrics) lives in `%APPDATA%\puw-player\library.db`.
-The exe carries the icon and version info (Properties → Details) taken from `version` in `Cargo.toml`. It is not code-signed, so SmartScreen or antivirus may still warn after a download; tick Properties → **Unblock** on the zip before extracting.
+The exe carries the icon and version info (Properties → Details) taken from `version` in `Cargo.toml`. It is not code-signed, so nothing but the official source at the top of this page confirms a file is the author's; SmartScreen or antivirus may also warn after a download; tick Properties → **Unblock** on the zip before extracting.
 
 ## Development
 

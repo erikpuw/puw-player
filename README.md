@@ -6,6 +6,8 @@
 
 Puw Player phát **nhạc có sẵn trên máy bạn**. Không stream, không tài khoản, không thuê bao, không gắn với Spotify, Apple Music hay nền tảng nhạc nào. Kết nối mạng duy nhất là tra **lời bài hát** cho các bài bạn đã có (LRCLIB, mặc định tắt).
 
+> **Chỉ tải từ nguồn của tác giả.** Puw Player do tác giả (erikpuw) phát hành duy nhất tại [github.com/erikpuw/puw-player](https://github.com/erikpuw/puw-player). Bản tải từ nơi khác (trang chia sẻ, kho khác, bản đóng gói lại, tệp gửi qua mạng) không do tác giả kiểm soát và không được đảm bảo: có thể đã bị sửa đổi hoặc chèn thêm mã. Hãy chỉ dùng bản ở mục [Releases](https://github.com/erikpuw/puw-player/releases) của kho này.
+
 ## Tính năng
 
 | Nhóm | Có gì |
@@ -56,7 +58,7 @@ cargo build --release
 ```
 
 File chạy: `target/release/puw-player.exe`. Lần đầu thư viện trống; thêm nhạc bằng nút **+** ở góc trên. Dữ liệu (thư viện, playlist, cài đặt, lời đã tải) nằm trong `%APPDATA%\puw-player\library.db`.
-Exe mang icon và thông tin phiên bản (Properties → Details) lấy từ `version` trong `Cargo.toml`. Exe chưa ký số nên khi gửi qua mạng, SmartScreen hoặc antivirus vẫn có thể cảnh báo; khách bấm Properties → **Unblock** trên file zip trước khi giải nén.
+Exe mang icon và thông tin phiên bản (Properties → Details) lấy từ `version` trong `Cargo.toml`. Exe chưa ký số, nên không có gì khác ngoài nguồn chính chủ ở đầu trang để xác nhận file là của tác giả; khi tải về, SmartScreen hoặc antivirus vẫn có thể cảnh báo; khách bấm Properties → **Unblock** trên file zip trước khi giải nén.
 
 ## Phát triển
 
