@@ -227,26 +227,16 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
     on!(on_seek_backward, |ui, s| seek_relative(ui, s, -10_000));
     on!(on_seek_forward, |ui, s| seek_relative(ui, s, 10_000));
     on!(on_toggle_shuffle, |ui, s| {
-        s.settings.shuffle = !s.settings.shuffle;
-        if let Some(queue) = s.queue.as_mut() {
-            queue.set_shuffle(s.settings.shuffle);
-        }
-        ui.set_shuffle(s.settings.shuffle);
-        let settings = s.settings.clone();
-        let _ = s.library.save_settings(&settings);
+        let on = !s.settings.shuffle;
+        set_shuffle(ui, s, on);
     });
     on!(on_cycle_repeat, |ui, s| {
-        s.settings.repeat = match s.settings.repeat {
+        let next = match s.settings.repeat {
             RepeatMode::Off => RepeatMode::All,
             RepeatMode::All => RepeatMode::One,
             RepeatMode::One => RepeatMode::Off,
         };
-        if let Some(queue) = s.queue.as_mut() {
-            queue.repeat = s.settings.repeat;
-        }
-        ui.set_repeat_mode(repeat_code(s.settings.repeat));
-        let settings = s.settings.clone();
-        let _ = s.library.save_settings(&settings);
+        set_repeat(ui, s, next);
     });
     on!(on_window_minimize, |ui, _s| ui.window().set_minimized(true));
     on!(on_window_maximize, |ui, _s| {
@@ -688,6 +678,13 @@ fn poll(ui: &AppWindow, s: &mut AppState) {
     for event in s.media.events() {
         handle_media_event(ui, s, event);
     }
+    for request in s.media.mode_requests() {
+        match request {
+            media_keys::ModeRequest::Shuffle(on) => set_shuffle(ui, s, on),
+            media_keys::ModeRequest::Repeat(mode) => set_repeat(ui, s, mode),
+        }
+    }
+    s.media.set_modes(s.settings.shuffle, s.settings.repeat);
     if s.current_id.is_some() {
         let status = match snapshot.state {
             PlaybackState::Playing => media_keys::Status::Playing,
@@ -958,6 +955,26 @@ fn highlight_current_in_playlist(ui: &AppWindow, s: &AppState) {
         .map(|index| index as i32)
         .unwrap_or(-1);
     ui.set_current_playlist_track(current);
+}
+
+fn set_shuffle(ui: &AppWindow, s: &mut AppState, on: bool) {
+    s.settings.shuffle = on;
+    if let Some(queue) = s.queue.as_mut() {
+        queue.set_shuffle(on);
+    }
+    ui.set_shuffle(on);
+    let settings = s.settings.clone();
+    let _ = s.library.save_settings(&settings);
+}
+
+fn set_repeat(ui: &AppWindow, s: &mut AppState, mode: RepeatMode) {
+    s.settings.repeat = mode;
+    if let Some(queue) = s.queue.as_mut() {
+        queue.repeat = mode;
+    }
+    ui.set_repeat_mode(repeat_code(mode));
+    let settings = s.settings.clone();
+    let _ = s.library.save_settings(&settings);
 }
 
 /// UI code for the repeat button: 0 off, 1 all, 2 one.

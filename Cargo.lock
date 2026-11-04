@@ -3963,6 +3963,7 @@ dependencies = [
  "slint-build",
  "souvlaki",
  "tempfile",
+ "windows 0.62.2",
  "windows-sys 0.61.2",
 ]
 

@@ -18,7 +18,7 @@ Puw Player plays **music that is already on your computer**. No streaming, no ac
 | Quality | A badge after the source details: **Hi-Res Lossless** (lossless 24-bit or above 48 kHz), **Lossless** (FLAC, ALAC, WAV…), or the bitrate for compressed files (e.g. 320 kbps). Releases named "Dolby Atmos"/"Binaural" get an extra label with a headphones icon. |
 | Cover flow | Current cover in the middle, two covers on each side from the queue, sliding when the track changes. |
 | Lyrics | A `.lrc` file next to the song first, then saved lyrics, then LRCLIB if you turn it on. Synced to playback, click a line to seek, per-song ±0.5 s offset. Downloaded lyrics work offline. |
-| Windows | Shows up in the Windows media flyout and answers keyboard media keys. "Now playing" readers such as PUW Notch can see it too. |
+| Windows | Shows up in the Windows media flyout and answers keyboard media keys. "Now playing" readers such as PUW Notch can see it too, including Shuffle / Repeat state, and toggling either from such an app changes the player. |
 | Interface | System / light / dark theme, Vietnamese / English, respects Windows reduced-motion setting. |
 | Shortcuts | `Space` play/pause · `←` `→` seek 10 s · `↑` `↓` volume · `Esc` close the open panel. |
 

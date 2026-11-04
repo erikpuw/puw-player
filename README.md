@@ -18,7 +18,7 @@ Puw Player phát **nhạc có sẵn trên máy bạn**. Không stream, không t�
 | Chất lượng | Sau thông số nguồn có huy hiệu: **Hi-Res Lossless** (lossless 24-bit hoặc trên 48 kHz), **Lossless** (FLAC, ALAC, WAV…), hoặc bitrate cho file nén (vd. 320 kbps). Bản phát hành ghi "Dolby Atmos"/"Binaural" trong tên có thêm nhãn kèm icon tai nghe. |
 | Cover flow | Bìa đang phát ở giữa, 2 bìa mỗi bên theo hàng đợi, trượt khi chuyển bài. |
 | Lời bài hát | Ưu tiên file `.lrc` cạnh bài hát, rồi lời đã lưu, rồi LRCLIB nếu bạn bật. Lời chạy theo nhạc, bấm một dòng để tua, chỉnh lệch ±0,5 giây cho từng bài. Lời đã tải dùng được khi offline. |
-| Windows | Hiện trong bảng media của Windows và nhận phím media trên bàn phím. Các app đọc "now playing" như PUW Notch cũng thấy được. |
+| Windows | Hiện trong bảng media của Windows và nhận phím media trên bàn phím. Các app đọc "now playing" như PUW Notch cũng thấy được, kể cả trạng thái Trộn bài / Lặp lại, và bấm hai nút đó ở app ngoài thì player đổi theo. |
 | Giao diện | Theme hệ thống / sáng / tối, tiếng Việt / English, tôn trọng cài đặt giảm chuyển động của Windows. |
 | Phím tắt | `Space` phát/tạm dừng · `←` `→` tua 10 giây · `↑` `↓` âm lượng · `Esc` đóng lớp đang mở. |
 

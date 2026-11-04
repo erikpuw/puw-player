@@ -11,6 +11,10 @@ use souvlaki::{
 
 use puw_player::i18n::tr;
 use puw_player::library::Track;
+use puw_player::queue::RepeatMode;
+
+#[cfg(windows)]
+use windows::Media::{MediaPlaybackAutoRepeatMode, SystemMediaTransportControls};
 
 /// Position drift beyond this (a seek, a stall) is re-published; normal playback is
 /// extrapolated by readers from the last update, so steady progress needs no traffic.
@@ -23,8 +27,41 @@ pub enum Status {
     Stopped,
 }
 
+/// Shuffle / repeat changes that Windows or another app (puw-notch) asked for through SMTC.
+pub enum ModeRequest {
+    Shuffle(bool),
+    Repeat(RepeatMode),
+}
+
+#[cfg(windows)]
+fn repeat_to_smtc(mode: RepeatMode) -> MediaPlaybackAutoRepeatMode {
+    match mode {
+        RepeatMode::Off => MediaPlaybackAutoRepeatMode::None,
+        RepeatMode::All => MediaPlaybackAutoRepeatMode::List,
+        RepeatMode::One => MediaPlaybackAutoRepeatMode::Track,
+    }
+}
+
+#[cfg(windows)]
+fn repeat_from_smtc(mode: MediaPlaybackAutoRepeatMode) -> RepeatMode {
+    if mode == MediaPlaybackAutoRepeatMode::List {
+        RepeatMode::All
+    } else if mode == MediaPlaybackAutoRepeatMode::Track {
+        RepeatMode::One
+    } else {
+        RepeatMode::Off
+    }
+}
+
 pub struct SystemMedia {
     controls: Option<MediaControls>,
+    // souvlaki hides its SMTC object and has no shuffle/repeat on Windows, so we hold the
+    // same per-window object ourselves for those two properties.
+    #[cfg(windows)]
+    smtc: Option<SystemMediaTransportControls>,
+    modes_tx: Sender<ModeRequest>,
+    modes_rx: Receiver<ModeRequest>,
+    published_modes: Option<(bool, RepeatMode)>,
     tx: Sender<MediaControlEvent>,
     rx: Receiver<MediaControlEvent>,
     track: Option<Track>,
@@ -35,8 +72,14 @@ pub struct SystemMedia {
 impl SystemMedia {
     pub fn new() -> Self {
         let (tx, rx) = mpsc::channel();
+        let (modes_tx, modes_rx) = mpsc::channel();
         Self {
             controls: None,
+            #[cfg(windows)]
+            smtc: None,
+            modes_tx,
+            modes_rx,
+            published_modes: None,
             tx,
             rx,
             track: None,
@@ -63,7 +106,67 @@ impl SystemMedia {
         if let Some(track) = self.track.clone() {
             self.publish_metadata(&track);
         }
+        #[cfg(windows)]
+        self.attach_modes(hwnd)?;
         Ok(())
+    }
+
+    /// Declares shuffle/repeat support: Windows only enables those buttons for readers
+    /// (IsShuffleEnabled / IsRepeatEnabled) once the change-requested events have a handler.
+    #[cfg(windows)]
+    fn attach_modes(&mut self, hwnd: *mut std::ffi::c_void) -> Result<(), String> {
+        use windows::Foundation::TypedEventHandler;
+        use windows::Media::{
+            AutoRepeatModeChangeRequestedEventArgs, ShuffleEnabledChangeRequestedEventArgs,
+        };
+        use windows::Win32::Foundation::HWND;
+        use windows::Win32::System::WinRT::ISystemMediaTransportControlsInterop;
+        use windows::core::{Error, Ref, factory};
+
+        let fail = |error: Error| error.to_string();
+        let interop = factory::<SystemMediaTransportControls, ISystemMediaTransportControlsInterop>()
+            .map_err(fail)?;
+        let smtc: SystemMediaTransportControls =
+            unsafe { interop.GetForWindow(HWND(hwnd)) }.map_err(fail)?;
+
+        let tx = self.modes_tx.clone();
+        smtc.ShuffleEnabledChangeRequested(&TypedEventHandler::new(
+            move |_, args: Ref<'_, ShuffleEnabledChangeRequestedEventArgs>| {
+                let _ = tx.send(ModeRequest::Shuffle(args.ok()?.RequestedShuffleEnabled()?));
+                Ok(())
+            },
+        ))
+        .map_err(fail)?;
+        let tx = self.modes_tx.clone();
+        smtc.AutoRepeatModeChangeRequested(&TypedEventHandler::new(
+            move |_, args: Ref<'_, AutoRepeatModeChangeRequestedEventArgs>| {
+                let mode = repeat_from_smtc(args.ok()?.RequestedAutoRepeatMode()?);
+                let _ = tx.send(ModeRequest::Repeat(mode));
+                Ok(())
+            },
+        ))
+        .map_err(fail)?;
+        self.smtc = Some(smtc);
+        self.published_modes = None;
+        Ok(())
+    }
+
+    /// Shuffle / repeat changes requested from outside since the last call.
+    pub fn mode_requests(&self) -> Vec<ModeRequest> {
+        self.modes_rx.try_iter().collect()
+    }
+
+    /// Called every UI tick with the app's current state; only talks to Windows on change.
+    pub fn set_modes(&mut self, shuffle: bool, repeat: RepeatMode) {
+        if self.published_modes == Some((shuffle, repeat)) {
+            return;
+        }
+        #[cfg(windows)]
+        if let Some(smtc) = &self.smtc {
+            let _ = smtc.SetShuffleEnabled(shuffle);
+            let _ = smtc.SetAutoRepeatMode(repeat_to_smtc(repeat));
+            self.published_modes = Some((shuffle, repeat));
+        }
     }
 
     /// Button presses and seek requests received since the last call.
@@ -182,4 +285,19 @@ fn write_cover(track_id: i64, image: &slint::Image) -> Option<PathBuf> {
     let path = dir.join(format!("now-playing-{track_id}.png"));
     buffer.save(&path).ok()?;
     Some(path)
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repeat_maps_both_ways() {
+        for mode in [RepeatMode::Off, RepeatMode::All, RepeatMode::One] {
+            assert_eq!(repeat_from_smtc(repeat_to_smtc(mode)), mode);
+        }
+        assert_eq!(repeat_to_smtc(RepeatMode::Off), MediaPlaybackAutoRepeatMode::None);
+        assert_eq!(repeat_to_smtc(RepeatMode::All), MediaPlaybackAutoRepeatMode::List);
+        assert_eq!(repeat_to_smtc(RepeatMode::One), MediaPlaybackAutoRepeatMode::Track);
+    }
 }

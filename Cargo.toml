@@ -7,7 +7,7 @@ description = "Trình nghe nhạc offline cho Windows"
 
 [features]
 default = ["gui"]
-gui = ["dep:slint", "dep:rfd", "dep:raw-window-handle", "dep:windows-sys", "dep:souvlaki"]
+gui = ["dep:slint", "dep:rfd", "dep:raw-window-handle", "dep:windows-sys", "dep:windows", "dep:souvlaki"]
 
 [[bin]]
 name = "puw-player"
@@ -30,6 +30,8 @@ raw-window-handle = { version = "0.6", optional = true }
 souvlaki = { version = "0.9.3", optional = true }
 
 [target.'cfg(windows)'.dependencies]
+# Same crate version as souvlaki: SMTC shuffle/repeat live on the object souvlaki does not expose.
+windows = { version = "0.62", optional = true, features = ["Foundation", "Media", "Win32_Foundation", "Win32_System_WinRT"] }
 windows-sys = { version = "0.61", optional = true, features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_System_Registry"] }
 
 [build-dependencies]
