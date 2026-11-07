@@ -4,35 +4,32 @@
 
 <p align="center">An offline music player for Windows · <a href="README.md">Tiếng Việt</a></p>
 
-Puw Player plays **music that is already on your computer**. No streaming, no account, no subscription, no ties to Spotify, Apple Music or any other platform. The only network use is looking up **lyrics** for songs you already have (LRCLIB, off by default).
+Puw Player plays music that is already on your computer. No streaming, no account, no subscription. The only network use is looking up lyrics (LRCLIB, off by default).
 
 > **Download only from the author's source.** Puw Player is published by its author (erikpuw) only at [github.com/erikpuw/puw-player](https://github.com/erikpuw/puw-player). A copy from anywhere else (file-sharing sites, other repositories, repackaged builds, files sent over the internet) is not controlled by the author and comes with no guarantee: it may have been modified or had code added. Use only the build in this repository's [Releases](https://github.com/erikpuw/puw-player/releases).
 
 ## Features
 
-| Area | What you get |
-|---|---|
-| Library | Add files or whole folders. Only paths are stored; your files are never copied, moved or deleted. Remove a song from the library (trash button on the row) or clean up every song whose file is gone (Settings → Clean up broken songs); music files stay on disk. |
-| Playback | Play/pause, stop, previous/next, ±10 s seek, draggable timeline, volume. |
-| Queue | Shuffle without repeats, Previous returns to the song you just heard. Repeat: off / all / one. |
-| Search | Box on the Songs tab and inside each playlist filters by title or artist as you type. |
-| Playlists | Create, rename, delete. Add songs from the Songs tab, remove songs from a playlist. Deleting a playlist never deletes music files. |
-| Quality | A badge after the source details: **Hi-Res Lossless** (lossless 24-bit or above 48 kHz), **Lossless** (FLAC, ALAC, WAV…), or the bitrate for compressed files (e.g. 320 kbps). Releases named "Dolby Atmos"/"Binaural" get an extra label with a headphones icon. |
-| Cover flow | Current cover in the middle, two covers on each side from the queue, sliding when the track changes. |
-| Lyrics | A `.lrc` file next to the song first, then saved lyrics, then LRCLIB if you turn it on. Synced to playback, click a line to seek, per-song ±0.5 s offset. Downloaded lyrics work offline. |
-| Windows | Shows up in the Windows media flyout and answers keyboard media keys. "Now playing" readers such as PUW Notch can see it too, including Shuffle / Repeat state, and toggling either from such an app changes the player. |
-| Interface | System / light / dark theme, Vietnamese / English, respects Windows reduced-motion setting. |
-| Shortcuts | `Space` play/pause · `←` `→` seek 10 s · `↑` `↓` volume · `Esc` close the open panel. |
+- **Library:** add files or whole folders. The app only remembers paths and never copies, moves or deletes your music files. You can remove songs from the library, or clean up songs whose file is gone in Settings.
+- **Playback:** play, pause, stop, previous and next, 10 second seek, a draggable timeline, volume.
+- **Shuffle and repeat:** shuffle without repeats, repeat off, all or one.
+- **Search:** a box on the Songs tab and inside each playlist filters by title or artist.
+- **Playlists:** create, rename, delete, add and remove songs. Deleting a playlist never deletes music files.
+- **Quality:** a Hi-Res Lossless, Lossless or bitrate badge sits next to the song details.
+- **Lyrics:** taken from a `.lrc` file next to the song, saved lyrics, or LRCLIB if you turn it on. Lines follow the music, click one to seek, and each song has a ±0.5 s offset.
+- **Windows:** shows in the Windows media flyout and answers media keys. "Now playing" readers such as PUW Notch can see the song and the shuffle and repeat state, and can control them back.
+- **Interface:** system, light or dark theme, Vietnamese or English.
+- **Shortcuts:** `Space` play or pause, `←` `→` seek, `↑` `↓` volume, `Esc` close the open panel.
 
 ## Screenshots
 
 | | |
 |---|---|
-| ![Now playing](assets/screenshots/player-dark.png)<br>**Now playing**: cover in the middle, two neighbours on each side taken from the queue, sliding on track change | ![Quality](assets/screenshots/player-quality.png)<br>**Quality**: FLAC 24-bit / 96 kHz earns the **Hi-Res Lossless** label; a release named "Dolby Atmos" gets the headphones label too |
-| ![Lyrics](assets/screenshots/player-lyrics.png)<br>**Lyrics**: the current line lights up, click a line to seek, ±0.5 s offset per song | ![Playlists](assets/screenshots/player-playlist.png)<br>**Playlists**: create, rename, add and remove songs; music files are untouched |
-| ![Settings](assets/screenshots/player-settings.png)<br>**Settings**: theme, language, LRCLIB lyrics, broken-song cleanup | ![Light theme](assets/screenshots/player-light.png)<br>**Light theme** — follows the system / light / dark |
+| ![Now playing](assets/screenshots/player-dark.png)<br>Now playing | ![Quality](assets/screenshots/player-quality.png)<br>Quality badge |
+| ![Lyrics](assets/screenshots/player-lyrics.png)<br>Lyrics | ![Playlists](assets/screenshots/player-playlist.png)<br>Playlists |
+| ![Settings](assets/screenshots/player-settings.png)<br>Settings | ![Light theme](assets/screenshots/player-light.png)<br>Light theme |
 
-The screenshots use a self-generated demo library (song names, artists, albums, artwork and lyrics are all synthetic data produced for this project) so that no real recording's copyright is involved.
+The screenshots use a self-made demo library (song names, artists, artwork and lyrics are all demo data) so no real recording's copyright is involved.
 
 ## Privacy
 
@@ -45,36 +42,28 @@ The screenshots use a self-generated demo library (song names, artists, albums, 
 
 | Format | Status |
 |---|---|
-| FLAC, WAV PCM, M4A (AAC-LC) | Played and checked on real files. |
-| MP3 | Tags are read; playback not fully tested yet. |
+| FLAC, WAV, M4A (AAC) | Played and checked on real files. |
+| MP3 | Tags are read, playback not fully tested yet. |
 | WMA, APE, DSD, Opus, HE-AAC | Not supported. |
 
 ## Build and run
 
-Needs Windows 10/11 and [Rust](https://rustup.rs) 1.92 or newer (MSVC toolchain).
+Needs Windows 10 or 11 and [Rust](https://rustup.rs) 1.92 or newer.
 
 ```bash
 cargo build --release
 ```
 
-The app is `target/release/puw-player.exe`. The library starts empty; add music with the **+** button at the top. Data (library, playlists, settings, saved lyrics) lives in `%APPDATA%\puw-player\library.db`.
-The exe carries the icon and version info (Properties → Details) taken from `version` in `Cargo.toml`. It is not code-signed, so nothing but the official source at the top of this page confirms a file is the author's; SmartScreen or antivirus may also warn after a download; tick Properties → **Unblock** on the zip before extracting.
+The app is `target/release/puw-player.exe`. The library starts empty, add music with the **+** button at the top. Data lives in `%APPDATA%\puw-player\library.db`.
 
-## Development
+The exe is not code-signed, so nothing but the official source at the top of this page confirms a file is the author's. Windows SmartScreen or antivirus may warn. If you download the zip, right-click it, open Properties, tick **Unblock**, then extract.
 
-```bash
-cargo test --no-default-features     # core tests, no audio device needed
-cargo clippy --all-targets -- -D warnings
-```
+## Limitations
 
-Rust + [Slint](https://slint.dev) for the interface, Rodio/Symphonia for audio, SQLite for data. The icon is drawn by `assets/make_icon.py`.
+- No drag and drop into the window yet, add music with the **+** button.
+- Artwork comes only from images embedded in the file, `cover.jpg` in the folder is not read yet.
+- Windows Snap Layouts and 125%, 150% DPI displays have not been tested thoroughly.
 
 ## License
 
 [MIT](LICENSE)
-
-## Limitations
-
-- No drag-and-drop into the window yet; add music with the **+** button.
-- Artwork comes only from images embedded in the file; `cover.jpg` in the folder is not read yet.
-- Windows Snap Layouts and 125%/150% DPI displays have not been tested thoroughly.
