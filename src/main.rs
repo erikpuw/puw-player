@@ -72,7 +72,6 @@ struct AppState {
     active_lyric: i32,
     covers: HashMap<(PathBuf, u32), Option<slint::Image>>,
     pending_covers: HashSet<(PathBuf, u32)>,
-    // Separate workers so the now-playing cover never waits behind library thumbnails.
     thumb_tx: Sender<CoverJob>,
     cover_tx: Sender<CoverJob>,
     cover_rx: Receiver<CoverResult>,
@@ -197,7 +196,6 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.show()?;
     apply_border_style(&ui, false);
     let res = ui.run();
-    // The only shutdown path: fades the track, lets the device tail decay, closes the stream.
     state.borrow_mut().player.shutdown();
     res
 }
@@ -245,8 +243,6 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
         ui.set_window_maximized(maximized);
         apply_border_style(ui, maximized);
     });
-    // Hiding the last window ends `ui.run()`; `main` then shuts the player down, so the
-    // window disappears at once while audio winds down (Alt+F4 and the taskbar go the same way).
     on!(on_window_close, |ui, _s| {
         let _ = ui.window().hide();
     });
@@ -422,7 +418,6 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
         match mode {
             1 => match s.library.create_playlist(&text) {
                 Ok(id) => {
-                    // Created from the "add to playlist" picker: put that song in right away.
                     let picked = ui.get_picker_track();
                     if picked >= 0 {
                         ui.set_picker_track(-1);
@@ -491,7 +486,6 @@ fn wire(ui: &AppWindow, state: &Rc<RefCell<AppState>>) {
         let settings = s.settings.clone();
         let _ = s.library.save_settings(&settings);
         set_language(&ui, english);
-        // Text built on the Rust side carries the old language until rebuilt.
         refresh_library(&ui, &mut s);
         refresh_playlists(&ui, &mut s);
         refresh_playlist_tracks(&ui, &mut s);
@@ -744,7 +738,6 @@ fn drain_covers(ui: &AppWindow, s: &mut AppState) {
                     }
                     _ => {}
                 }
-                // Refresh neighbors as their artwork arrives.
                 set_neighbor_covers(ui, s);
             }
         }
@@ -829,7 +822,6 @@ fn drain_import(ui: &AppWindow, s: &mut AppState) {
 }
 
 fn refresh_library(ui: &AppWindow, s: &mut AppState) {
-    // library_tracks is what the list shows: row indices from the UI index it directly.
     let query = s.search.to_lowercase();
     s.library_tracks = s.library.tracks(None).unwrap_or_default();
     s.library_tracks.retain(|track| matches_query(track, &query));
@@ -839,7 +831,6 @@ fn refresh_library(ui: &AppWindow, s: &mut AppState) {
     highlight_current(ui, s);
 }
 
-/// `query` is already lowercased; empty matches everything.
 fn matches_query(track: &Track, query: &str) -> bool {
     query.is_empty()
         || display_title(track).to_lowercase().contains(query)
@@ -977,7 +968,6 @@ fn set_repeat(ui: &AppWindow, s: &mut AppState, mode: RepeatMode) {
     let _ = s.library.save_settings(&settings);
 }
 
-/// UI code for the repeat button: 0 off, 1 all, 2 one.
 fn repeat_code(mode: RepeatMode) -> i32 {
     match mode {
         RepeatMode::Off => 0,
@@ -986,7 +976,6 @@ fn repeat_code(mode: RepeatMode) -> i32 {
     }
 }
 
-/// "Play all" starts at the top, or at a random track when shuffle is on.
 fn play_all_start(s: &AppState, len: usize) -> usize {
     if s.settings.shuffle && len > 0 {
         rand::random_range(0..len)
@@ -1014,7 +1003,6 @@ fn load_current(ui: &AppWindow, s: &mut AppState) {
     let Ok(Some(track)) = s.library.track(id) else {
         return;
     };
-    // Slide the cover flow only when the new track sits next to the old one in the queue.
     let flow_dir = match (s.current_id, s.queue.as_ref()) {
         (Some(old), Some(queue)) if queue.neighbor(-1) == Some(old) => 1.0,
         (Some(old), Some(queue)) if queue.neighbor(1) == Some(old) => -1.0,
@@ -1089,7 +1077,6 @@ fn toggle_play(ui: &AppWindow, s: &mut AppState) {
             s.player.send(PlaybackCommand::Pause);
             ui.set_playing(false);
         }
-        // Nothing chosen yet (fresh start is Idle with no queue): play the whole library.
         _ if s.current_id.is_none() => {
             let tracks = s.library_tracks.clone();
             if tracks.is_empty() {
@@ -1129,8 +1116,6 @@ fn previous_track(ui: &AppWindow, s: &mut AppState) {
     }
 }
 
-/// Source line + quality badge from a fresh header read, so tracks imported before the
-/// codec details were stored (e.g. ALAC inside .m4a) still show the right figures.
 fn show_source_quality(ui: &AppWindow, track: &Track) {
     use puw_player::playback::{Quality, SpatialMix, inspect_audio};
     let file_name = track
@@ -1169,8 +1154,6 @@ fn show_source_quality(ui: &AppWindow, track: &Track) {
     ui.set_now_quality_tier(tier);
 }
 
-/// After tracks leave the library: drop them from the queue and redraw every list.
-/// A removed track that is playing keeps playing; Next/Previous skip it from now on.
 fn forget_tracks(ui: &AppWindow, s: &mut AppState, ids: &[i64]) {
     if let Some(queue) = s.queue.as_mut() {
         for id in ids {
@@ -1190,7 +1173,6 @@ fn stop_playback(ui: &AppWindow, s: &mut AppState) {
     ui.set_playing(false);
 }
 
-/// Buttons from the Windows media flyout, keyboard media keys and readers such as puw-notch.
 fn handle_media_event(ui: &AppWindow, s: &mut AppState, event: souvlaki::MediaControlEvent) {
     use souvlaki::{MediaControlEvent as E, SeekDirection};
     let playing = s.player.snapshot().state == PlaybackState::Playing;
@@ -1323,8 +1305,6 @@ fn refresh_active_lyric(ui: &AppWindow, s: &mut AppState, force: bool) {
     ui.set_active_lyric(active);
 }
 
-/// Bottom edge of the sung line inside the lyric content, mirroring the row geometry in
-/// ui/player.slint: 8px top padding, 34px per line, 14px for a blank one.
 fn lyric_anchor(rows: &[LyricRow], active: i32) -> f32 {
     if active < 0 {
         return 0.0;
@@ -1518,7 +1498,6 @@ fn device_label(player: &Player) -> String {
         .replace("{ch}", &channels.to_string())
 }
 
-/// Switches both the Rust `tr` texts and every Slint `I18n.t` binding.
 fn set_language(ui: &AppWindow, english: bool) {
     i18n::set_english(english);
     ui.global::<I18n>().set_en(english);

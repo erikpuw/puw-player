@@ -1,4 +1,3 @@
-// Puw Player — approved layout, one frameless window.
 
 import { ListView, ScrollView } from "std-widgets.slint";
 
@@ -36,7 +35,6 @@ export global Theme {
     in-out property <bool> dark: true;
 }
 
-// Interface language. Rust flips `en` from Settings; every label binds through `t`.
 export global I18n {
     in-out property <bool> en: false;
     pure public function t(vi: string, eng: string) -> string {
@@ -73,8 +71,6 @@ export global Icons {
     out property <string> waveform: "M 3 10 V 14 M 7.5 6 V 18 M 12 3 V 21 M 16.5 6 V 18 M 21 10 V 14";
 }
 
-// Layouts pin items with a max size to the top edge, so icon components leave
-// their cross axis free and center their content themselves.
 component Glyph inherits Rectangle {
     in property <length> glyph-size: 18px;
     in property <string> icon: "";
@@ -107,7 +103,6 @@ component IconButton inherits Rectangle {
     in property <string> icon;
     in property <string> label;
     in property <string> badge: "";
-    // Lets a badge fade in/out instead of scaling text (repeat-one "1").
     in property <bool> badge-shown: true;
     in property <length> size: 34px;
     in property <length> icon-size: 18px;
@@ -179,8 +174,6 @@ component IconButton inherits Rectangle {
     }
 }
 
-// Cover-flow side panel. Slint has no 3D transform, so the image is drawn as thin
-// vertical strips whose height interpolates between the two edges -> a perspective trapezoid.
 component PerspectiveCover inherits Rectangle {
     in property <image> source;
     in property <length> left-height;
@@ -189,7 +182,6 @@ component PerspectiveCover inherits Rectangle {
     visible: source.width > 0;
     for _s[i] in root.strips: Image {
         property <float> t: (i + 0.5) / root.strips;
-        // Whole pixels only: fractional strip edges shimmer under the software renderer.
         x: round(root.width * i / root.strips / 1px) * 1px;
         width: round((root.width / root.strips + 1px) / 1px) * 1px;
         height: round((root.left-height + (root.right-height - root.left-height) * t) / 1px) * 1px;
@@ -203,8 +195,6 @@ component PerspectiveCover inherits Rectangle {
     }
 }
 
-// One cover-flow cover at continuous slot position `p` (0 = center, ±1 near, ±2 far, ±3 gone).
-// Geometry interpolates between slot keyframes measured from approved-player.png.
 component FlowCover inherits Rectangle {
     in property <image> source;
     in property <float> p;
@@ -212,7 +202,6 @@ component FlowCover inherits Rectangle {
     property <float> a: min(3, abs(p));
     property <int> seg: a <= 1 ? 0 : (a <= 2 ? 1 : 2);
     property <float> t: a - seg;
-    // Slot keyframes 0..3: center offset, width, inner/outer edge height, opacity.
     property <[float]> center-k: [0, 128 + 50 * side, 128 + 131 * side, 128 + 177 * side];
     property <[float]> width-k: [256, 100 * side, 62 * side, 30 * side];
     property <[float]> inner-k: [256, 206, 182, 160];
@@ -228,7 +217,6 @@ component FlowCover inherits Rectangle {
     visible: source.width > 0 && a < 3;
     opacity: at(alpha-k);
     z: -a;
-    // At rest the center cover keeps its aspect ratio (contain); moving covers use perspective strips.
     if root.a < 0.001: Rectangle {
         x: (root.width - 256px) / 2;
         y: (root.height - 256px) / 2;
@@ -250,8 +238,6 @@ component FlowCover inherits Rectangle {
     }
 }
 
-// Play triangle <-> pause bars morph. Both shapes are two quads with matching vertices,
-// so every point interpolates linearly with `m` (0 = play, 1 = pause).
 component PlayPauseMorph inherits Path {
     in property <float> m;
     viewbox-width: 24;
@@ -269,7 +255,6 @@ component PlayPauseMorph inherits Path {
     Close { }
 }
 
-// Lossless mark: two phase-shifted sine strands, thin behind bold (our own drawing).
 component WaveMark inherits Rectangle {
     in property <length> mark-size: 16px;
     in property <color> tint: Theme.text;
@@ -277,7 +262,6 @@ component WaveMark inherits Rectangle {
     max-width: mark-size * 34 / 20;
     min-height: mark-size;
     horizontal-stretch: 0;
-    // One wave period per strand: up from the lower left, crest, trough, rising tail.
     for strand[k] in [{ x: 2, w: 0.055 }, { x: 9, w: 0.12 }] : Path {
         y: (parent.height - root.mark-size) / 2;
         width: parent.width;
@@ -292,7 +276,6 @@ component WaveMark inherits Rectangle {
     }
 }
 
-// Thin vertical divider that stays centered inside a row layout.
 component VDivider inherits Rectangle {
     in property <length> line-height: 18px;
     min-width: 1px;
@@ -305,7 +288,6 @@ component VDivider inherits Rectangle {
     }
 }
 
-// Soft fade at the top or bottom edge of a scrollable list when content extends past that edge.
 component ScrollEdgeFade inherits Rectangle {
     in property <bool> top: true;
     in property <bool> shown: false;
@@ -469,7 +451,6 @@ component TabHeader inherits Rectangle {
         width: parent.width;
         border-radius: 1px;
         background: Theme.accent;
-        // The selected tab is already accent-coloured; the bar only marks keyboard focus.
         opacity: tab-focus.has-focus ? 0.5 : 0;
         animate opacity { duration: Motion.fast; }
     }
@@ -482,7 +463,6 @@ component TabHeader inherits Rectangle {
 component SearchBox inherits Rectangle {
     in-out property <string> text;
     callback changed(string);
-    // Enter or Esc: hand the keyboard shortcuts (Space, arrows) back to the player.
     callback leave();
     height: 34px;
     border-radius: 8px;
@@ -539,7 +519,6 @@ component TrackListItem inherits Rectangle {
     in property <bool> missing;
     in property <bool> current;
     in property <bool> selected;
-    // Optional hover actions at the row's right edge: `action` rightmost, `extra` left of it.
     in property <string> action-icon: "";
     in property <string> action-label: "";
     in property <string> extra-icon: "";
@@ -614,7 +593,6 @@ component TrackListItem inherits Rectangle {
         mouse-cursor: pointer;
         clicked => { root.activate(); }
     }
-    // Declared after the row TouchArea so it sits on top and receives its own clicks.
     Rectangle {
         visible: root.show-action;
         x: parent.width - 40px;
@@ -745,7 +723,6 @@ export component AppWindow inherits Window {
     in-out property <string> lyrics-status;
     in-out property <bool> following: true;
     in-out property <int> active-lyric: -1;
-    // Bottom edge of the sung line inside the lyric content; Rust keeps it in sync with the model.
     in property <length> lyric-anchor: 0px;
     in-out property <string> lyric-offset: "+0.0s";
     in-out property <bool> settings-visible;
@@ -760,12 +737,8 @@ export component AppWindow inherits Window {
     in-out property <bool> window-maximized;
     in-out property <bool> add-menu-visible;
     in-out property <int> dialog-mode: 0;
-    // Library row whose "add to playlist" picker is open; -1 = closed.
     in-out property <int> picker-track: -1;
-    // Library row waiting for the "remove from library" confirmation (dialog-mode 4).
     in-out property <int> pending-remove: -1;
-    // Slint 1.18 ListViews instantiated before the window has its real size loop
-    // ("long callback/instantiation chain detected"). Rust sets this once the window is shown.
     in-out property <bool> lists-ready: false;
     in-out property <string> dialog-text;
     in-out property <string> search-text;
@@ -782,9 +755,7 @@ export component AppWindow inherits Window {
     in-out property <string> now-artist: I18n.t("Chọn một bài hát để bắt đầu", "Pick a song to start");
     in-out property <string> now-source: "";
     in-out property <string> now-quality: "";
-    // "Atmos" / "Binaural" / "Binaural Atmos" when the release is named so; "" otherwise.
     in-out property <string> now-spatial: "";
-    // 0 = no tag (lossy: bitrate is part of now-source), 2 = lossless, 3 = hi-res.
     in-out property <int> now-quality-tier: 0;
     in-out property <string> now-device: "";
     in-out property <image> cover;
@@ -800,15 +771,12 @@ export component AppWindow inherits Window {
     in-out property <string> duration-label: "00:00";
     in-out property <string> volume-label: "100%";
 
-    // Cover-flow slide: flow-shift eases from ±1 to 0 after a track change.
     property <float> flow-from: 0;
     property <duration> flow-start;
     property <bool> flow-active: false;
     property <duration> flow-duration: Motion.slow * 1.8;
     property <float> flow-t: flow-active ? min(1, (animation-tick() - flow-start) / flow-duration) : 1;
-    // Smoothstep: gentle start and finish, so the first frame after a track change doesn't jump.
     out property <float> flow-shift: flow-from * (1 - flow-t * flow-t * (3 - 2 * flow-t));
-    // dir: +1 = moved to next (strip slides left), -1 = previous, 0 = jump without slide.
     public function start-flow(dir: float) {
         if (dir == 0 || flow-duration <= 0ms) {
             flow-active = false;
@@ -879,8 +847,6 @@ export component AppWindow inherits Window {
     default-font-family: "Segoe UI";
     default-font-size: 14px;
 
-    // Keep the sung line in view. content-y is negative once scrolled, so a positive target
-    // here never moved the pane.
     function follow-lyric() {
         if (root.following && root.active-lyric >= 0) {
             let limit = max(0px, lyric-scroll.content-height - lyric-scroll.height);
@@ -888,7 +854,6 @@ export component AppWindow inherits Window {
         }
     }
     changed active-lyric => { root.follow-lyric(); }
-    // Shuffle lands the playing row anywhere in the library, so pull it back into view.
     changed current-track => {
         if (root.current-track >= 0 && songs-list.content-height > 0px) {
             let pitch = songs-list.content-height / max(1, root.tracks.length);
@@ -909,7 +874,6 @@ export component AppWindow inherits Window {
             }
         }
     }
-    // Return keyboard shortcuts to the window once a dialog or picker closes.
     changed dialog-mode => {
         if (root.dialog-mode == 0 && root.picker-track < 0) { app-focus.focus(); }
     }
@@ -945,14 +909,12 @@ export component AppWindow inherits Window {
         clip: true;
         background: Theme.bg;
 
-        // ── Title bar ────────────────────────────────────────────────
             Rectangle {
                 x: 0;
                 y: 0;
                 width: parent.width;
                 height: 56px;
                 background: transparent;
-                // Above the body so the "+" dropdown is not painted over by the right column.
                 z: 10;
 
                 WindowMoveArea {
@@ -1096,7 +1058,6 @@ export component AppWindow inherits Window {
                 }
             }
 
-            // ── Body ────────────────────────────────────────────────────
             Rectangle {
                 x: 0;
                 y: 56px;
@@ -1104,7 +1065,6 @@ export component AppWindow inherits Window {
                 height: parent.height - 62px;
                 background: transparent;
 
-                // Left column
                 Rectangle {
                     x: 24px;
                     y: 0;
@@ -1112,7 +1072,6 @@ export component AppWindow inherits Window {
                     height: parent.height;
                     background: transparent;
 
-                    // Cover Flow Stage
                     Rectangle {
                         x: 0;
                         y: 0;
@@ -1121,8 +1080,6 @@ export component AppWindow inherits Window {
                         background: transparent;
                         clip: true;
 
-                        // Five slots -2..2 placed by continuous position p = slot + flow-shift.
-                        // Changing track animates flow-shift from ±1 to 0, so the whole strip slides one slot.
                         property <float> side: min(1, max(0, (self.width / 2 - 128px) / 164px));
                         FlowCover { width: parent.width; height: parent.height; side: parent.side; source: root.cover-prev2; p: -2 + root.flow-shift; }
                         FlowCover { width: parent.width; height: parent.height; side: parent.side; source: root.cover-prev; p: -1 + root.flow-shift; }
@@ -1156,7 +1113,6 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    // Track Info + Metadata (no frame)
                     Rectangle {
                         x: 0;
                         y: parent.height - 262px;
@@ -1191,7 +1147,6 @@ export component AppWindow inherits Window {
                                     vertical-alignment: center;
                                     overflow: elide;
                                 }
-                                // Lossless mark + label, no box. 3 = Hi-Res Lossless (accent), 2 = Lossless.
                                 if root.now-quality-tier >= 2: HorizontalLayout {
                                     spacing: 5px;
                                     accessible-role: text;
@@ -1208,7 +1163,6 @@ export component AppWindow inherits Window {
                                         vertical-alignment: center;
                                     }
                                 }
-                                // Spatial release (usually a stereo/binaural render): headphones hint + name.
                                 if root.now-spatial != "": HorizontalLayout {
                                     spacing: 4px;
                                     accessible-role: text;
@@ -1231,7 +1185,6 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    // Timeline + Volume Row (frameless)
                     HorizontalLayout {
                         x: 0;
                         y: parent.height - 152px;
@@ -1284,7 +1237,6 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    // Compact Transport Row
                     HorizontalLayout {
                         x: 0;
                         y: parent.height - 102px;
@@ -1395,7 +1347,6 @@ export component AppWindow inherits Window {
                             tint: Theme.text;
                             clicked => { root.seek-forward(); }
                         }
-                        // Icon alone shows the mode: grey = off, accent = all, accent + "1" = one track.
                         IconButton {
                             icon: Icons.repeat;
                             label: root.repeat-mode == 0 ? I18n.t("Lặp: tắt", "Repeat: off") : (root.repeat-mode == 1 ? I18n.t("Lặp: tất cả", "Repeat: all") : I18n.t("Lặp: một bài", "Repeat: one track"));
@@ -1444,7 +1395,6 @@ export component AppWindow inherits Window {
                     background: @linear-gradient(180deg, transparent 0%, Theme.line 8%, Theme.line 92%, transparent 100%);
                 }
 
-                // Right column
                 Rectangle {
                     x: parent.width * 0.55 + 4px;
                     y: 0;
@@ -1516,7 +1466,6 @@ export component AppWindow inherits Window {
                                 missing: row.missing;
                                 current: root.current-track == i;
                                 selected: root.selected-track == i;
-                                // A track whose file is gone can only be removed; others can also go to a playlist.
                                 action-icon: row.missing ? Icons.trash : Icons.plus;
                                 action-label: row.missing ? I18n.t("Xóa khỏi thư viện", "Remove from library") : I18n.t("Thêm vào playlist", "Add to playlist");
                                 action => {
@@ -1739,7 +1688,6 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    // Lyrics pane
                     Rectangle {
                         x: 16px;
                         y: -12px;
@@ -1826,8 +1774,6 @@ export component AppWindow inherits Window {
                                 y: 0;
                                 width: parent.width;
                                 height: parent.height;
-                                // Lyrics opened mid-song set the active line before the rows are
-                                // laid out (height 0); scroll again once the real height is known.
                                 changed content-height => { root.follow-lyric(); }
                                 VerticalLayout {
                                     spacing: 0;
@@ -1889,7 +1835,6 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    // Settings
                     Rectangle {
                         x: 16px;
                         y: -14px;
@@ -1897,7 +1842,6 @@ export component AppWindow inherits Window {
                         height: parent.height + 14px;
                         background: transparent;
                         visible: root.settings-visible;
-                        // `start` keeps rows at their natural height instead of sharing out the spare space.
                         VerticalLayout {
                             alignment: start;
                             spacing: 12px;
@@ -1959,7 +1903,6 @@ export component AppWindow inherits Window {
                                 }
                                 }
                             }
-                            // Language names stay in their own language so either is findable.
                             Text { text: I18n.t("Ngôn ngữ", "Language"); color: Theme.muted; font-size: 12px; }
                             Rectangle {
                                 min-height: 34px;
@@ -2104,7 +2047,6 @@ export component AppWindow inherits Window {
                     }
                 }
 
-                // Toasts sit at the bottom of the right column, clear of the player controls.
                 Rectangle {
                     visible: root.importing;
                     x: parent.width * 0.55 + 20px;
@@ -2146,7 +2088,6 @@ export component AppWindow inherits Window {
                     IconButton {
                         x: parent.width - 38px;
                         y: 7px;
-                        // Outside a layout an element fills its parent unless sized explicitly.
                         width: 26px;
                         height: 26px;
                         icon: Icons.close;
@@ -2158,7 +2099,6 @@ export component AppWindow inherits Window {
                 }
             }
 
-        // "Add to playlist" picker for one library track
         Rectangle {
             x: 0;
             y: 0;
@@ -2266,7 +2206,6 @@ export component AppWindow inherits Window {
                             font-size: 14px;
                             vertical-alignment: center;
                         }
-                        // Keeps picker-track so the new playlist receives this song on save.
                         new-touch := TouchArea {
                             mouse-cursor: pointer;
                             clicked => {
@@ -2280,7 +2219,6 @@ export component AppWindow inherits Window {
             }
         }
 
-        // Modal dialog: create / rename / delete playlist
         Rectangle {
             x: 0;
             y: 0;
@@ -2290,7 +2228,6 @@ export component AppWindow inherits Window {
             visible: root.dialog-mode > 0;
             z: 20;
             TouchArea { }
-            // Card height follows its content; hidden rows use `if` so they take no space.
             Rectangle {
                 width: 380px;
                 height: dialog-layout.preferred-height;

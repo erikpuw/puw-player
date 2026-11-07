@@ -59,7 +59,6 @@ impl Queue {
         }
         self.shuffle = enabled;
         if enabled {
-            // Current track stays playing at the front; every other track is shuffled after it.
             if !self.order.is_empty() {
                 let current = self.order.remove(self.cursor);
                 self.order.shuffle(&mut rand::rng());
@@ -74,7 +73,6 @@ impl Queue {
                 .unwrap_or(0);
         }
     }
-    /// Drops a track removed from the library; the cursor stays on the same song when it can.
     pub fn remove(&mut self, id: i64) {
         self.original.retain(|x| *x != id);
         let Some(index) = self.order.iter().position(|x| *x == id) else {

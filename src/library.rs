@@ -1,6 +1,3 @@
-//! SQLite-backed music library, playlists, lyric cache and settings.
-//!
-//! The library only stores references to files; it never moves or deletes audio.
 
 use crate::i18n::tr;
 use std::path::{Path, PathBuf};
@@ -33,7 +30,6 @@ impl Track {
         !self.path.is_file()
     }
 
-    /// File properties only; output device details are shown separately in the UI.
     pub fn source_label(&self) -> String {
         let mut parts = vec![self.codec.to_uppercase()];
         if self.bits > 0 {
@@ -254,8 +250,6 @@ impl Library {
         Ok(())
     }
 
-    /// Removes a track from the library only; the audio file stays. Playlist entries, cached
-    /// lyrics and offsets go with it (ON DELETE CASCADE).
     pub fn remove_track(&mut self, id: i64) -> Result<(), String> {
         self.conn
             .execute("DELETE FROM tracks WHERE id = ?1", params![id])
@@ -263,7 +257,6 @@ impl Library {
         Ok(())
     }
 
-    /// Removes every track whose file no longer exists. Returns the removed ids.
     pub fn remove_missing(&mut self) -> Result<Vec<i64>, String> {
         let missing: Vec<i64> = self
             .tracks(None)?

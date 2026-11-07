@@ -360,7 +360,6 @@ fn stale_responses_are_detected() {
     assert!(!fresh.is_current(2, 7));
 }
 
-/// Network: `cargo test --no-default-features --test lyrics lrclib_live -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn lrclib_live() {

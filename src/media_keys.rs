@@ -1,5 +1,3 @@
-//! Windows media controls (SMTC): publishes what is playing so the volume flyout and
-//! now-playing readers such as puw-notch can see it, and forwards their buttons back to us.
 
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -16,8 +14,6 @@ use puw_player::queue::RepeatMode;
 #[cfg(windows)]
 use windows::Media::{MediaPlaybackAutoRepeatMode, SystemMediaTransportControls};
 
-/// Position drift beyond this (a seek, a stall) is re-published; normal playback is
-/// extrapolated by readers from the last update, so steady progress needs no traffic.
 const DRIFT_MS: i64 = 1500;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -27,7 +23,6 @@ pub enum Status {
     Stopped,
 }
 
-/// Shuffle / repeat changes that Windows or another app (puw-notch) asked for through SMTC.
 pub enum ModeRequest {
     Shuffle(bool),
     Repeat(RepeatMode),
@@ -55,8 +50,6 @@ fn repeat_from_smtc(mode: MediaPlaybackAutoRepeatMode) -> RepeatMode {
 
 pub struct SystemMedia {
     controls: Option<MediaControls>,
-    // souvlaki hides its SMTC object and has no shuffle/repeat on Windows, so we hold the
-    // same per-window object ourselves for those two properties.
     #[cfg(windows)]
     smtc: Option<SystemMediaTransportControls>,
     modes_tx: Sender<ModeRequest>,
@@ -88,7 +81,6 @@ impl SystemMedia {
         }
     }
 
-    /// Registers with SMTC for the given window. Returns an error message when Windows refuses.
     pub fn attach(&mut self, hwnd: *mut std::ffi::c_void) -> Result<(), String> {
         let config = PlatformConfig {
             display_name: "Puw Player",
@@ -111,8 +103,6 @@ impl SystemMedia {
         Ok(())
     }
 
-    /// Declares shuffle/repeat support: Windows only enables those buttons for readers
-    /// (IsShuffleEnabled / IsRepeatEnabled) once the change-requested events have a handler.
     #[cfg(windows)]
     fn attach_modes(&mut self, hwnd: *mut std::ffi::c_void) -> Result<(), String> {
         use windows::Foundation::TypedEventHandler;
@@ -151,12 +141,10 @@ impl SystemMedia {
         Ok(())
     }
 
-    /// Shuffle / repeat changes requested from outside since the last call.
     pub fn mode_requests(&self) -> Vec<ModeRequest> {
         self.modes_rx.try_iter().collect()
     }
 
-    /// Called every UI tick with the app's current state; only talks to Windows on change.
     pub fn set_modes(&mut self, shuffle: bool, repeat: RepeatMode) {
         if self.published_modes == Some((shuffle, repeat)) {
             return;
@@ -169,12 +157,10 @@ impl SystemMedia {
         }
     }
 
-    /// Button presses and seek requests received since the last call.
     pub fn events(&self) -> Vec<MediaControlEvent> {
         self.rx.try_iter().collect()
     }
 
-    /// New track: text and duration now, artwork when it is decoded (`set_cover`).
     pub fn set_track(&mut self, track: &Track, cover: Option<&slint::Image>) {
         self.track = Some(track.clone());
         self.replace_cover_file(None);
@@ -198,7 +184,6 @@ impl SystemMedia {
         }
     }
 
-    /// Called every UI tick; only talks to Windows when status changes or position jumps.
     pub fn update_playback(&mut self, status: Status, position_ms: u64) {
         let now = Instant::now();
         let unchanged = self.published.is_some_and(|(last, at_ms, at)| {
@@ -245,13 +230,10 @@ impl SystemMedia {
                 .filter(|a| !a.is_empty())
                 .map(String::as_str),
             cover_url: cover_url.as_deref(),
-            // Always set: souvlaki writes EndTime from this, and 0 would hide the progress bar.
             duration: Some(Duration::from_millis(track.duration_ms)),
         });
     }
 
-    /// Keeps one artwork file per track; Windows may read it after we return, so a file is
-    /// never overwritten in place, only deleted once the next one replaces it.
     fn replace_cover_file(&mut self, next: Option<PathBuf>) {
         if let Some(old) = self.cover_file.take()
             && Some(&old) != next.as_ref()

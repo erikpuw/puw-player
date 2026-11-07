@@ -1,4 +1,3 @@
-//! Audio transport: pure engine state, a Rodio output adapter, and a worker thread.
 
 use crate::i18n::tr;
 use std::path::{Path, PathBuf};
@@ -17,14 +16,11 @@ pub struct TrackInfo {
     pub bits: u16,
     pub codec: String,
     pub lossless: bool,
-    /// Audio bitrate; for lossy files this is the quality figure people know (128/256/320).
     pub bitrate_kbps: u32,
 }
 
-/// Quality badge shown after the sample rate, using the usual store tiers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Quality {
-    /// Lossless above CD quality: 24-bit or more than 48 kHz.
     HiRes,
     Lossless,
     Lossy {
@@ -32,8 +28,6 @@ pub enum Quality {
     },
 }
 
-/// Spatial release named in the title or file name. Such files are usually a stereo render
-/// (binaural = mixed for headphones); the label only says what the release is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SpatialMix {
     Atmos,
@@ -42,7 +36,6 @@ pub enum SpatialMix {
 }
 
 impl SpatialMix {
-    /// Whole words only, so "Atmosphere" is not Atmos.
     pub fn detect(name: &str) -> Option<Self> {
         let lower = name.to_lowercase();
         let has = |word: &str| {
@@ -90,8 +83,6 @@ pub fn inspect_audio(path: &Path) -> Result<TrackInfo, String> {
     let properties = tagged.properties();
     let file_type = tagged.file_type();
     let bits = properties.bit_depth().map(u16::from).unwrap_or(0);
-    // An .m4a holds either AAC (lossy, no bit depth) or ALAC (lossless, has a bit depth);
-    // name the codec, not the container.
     let alac = file_type == FileType::Mp4 && bits > 0;
     let codec = match file_type {
         FileType::Mp4 if alac => "alac",
@@ -109,7 +100,6 @@ pub fn inspect_audio(path: &Path) -> Result<TrackInfo, String> {
     })
 }
 
-/// Tag fields used by the library and the now-playing panel.
 #[derive(Clone, Debug, Default)]
 pub struct Tags {
     pub title: String,
@@ -208,7 +198,6 @@ pub trait AudioOutput: Send {
     }
 }
 
-/// Transport logic with no audio dependency. The worker thread owns one and feeds it commands.
 pub struct Engine<O: AudioOutput> {
     output: O,
     snapshot: PlaybackSnapshot,
@@ -344,7 +333,6 @@ impl<O: AudioOutput> Engine<O> {
         }
     }
 
-    /// Refresh the position while playing and report the end of the track exactly once.
     pub fn tick(&mut self) {
         if self.snapshot.state != PlaybackState::Playing {
             return;
@@ -371,14 +359,9 @@ pub struct RodioOutput {
     volume: f32,
 }
 
-/// After the last audible sample, keep feeding silence this long before closing the stream.
-/// Driver-level effects (Dolby on laptops) hold a reverb/virtualizer tail; closing the stream
-/// mid-tail leaves it in the device and it comes out as a click when the next stream opens.
 const CLOSE_TAIL: Duration = Duration::from_millis(350);
 
 impl RodioOutput {
-    /// Reads the default device format without opening a stream: the device stays asleep
-    /// until the first track plays, so launching the app makes no sound at all.
     pub fn new() -> Result<Self, String> {
         use rodio::cpal::traits::{DeviceTrait, HostTrait};
         let config = rodio::cpal::default_host()
@@ -414,7 +397,6 @@ impl RodioOutput {
             stream.log_on_drop(false);
             let cfg = stream.config();
             self.device = Some((cfg.sample_rate(), cfg.channel_count()));
-            // Keep a silent Zero source attached so the mixer stays warm with continuous 0.0 samples.
             stream.mixer().add(rodio::source::Zero::new(
                 cfg.channel_count(),
                 cfg.sample_rate(),
@@ -440,8 +422,6 @@ impl RodioOutput {
         let source = rodio::source::UniformSourceIterator::new(decoder, channels, sample_rate)
             .fade_in(Duration::from_millis(35));
         sink.append(source);
-        // Advance past SourcesQueueOutput's initial Empty(1ch, 48kHz) placeholder so the mixer
-        // sees the real channel count and sample rate from sample 0 without a 512-sample glitch.
         for _ in 0..channels {
             let _ = queue_rx.next();
         }
@@ -456,7 +436,6 @@ impl RodioOutput {
         if let Some(sink) = self.sink.take() {
             if !sink.empty() && !sink.is_paused() {
                 let current = sink.volume();
-                // Step down across rodio's 5ms periodic_access intervals so the waveform never clips.
                 for factor in [0.6, 0.3, 0.1, 0.0] {
                     sink.set_volume(current * factor);
                     std::thread::sleep(Duration::from_millis(6));
@@ -541,7 +520,6 @@ impl AudioOutput for RodioOutput {
         self.silence_and_drop_sink();
     }
     fn seek(&mut self, position_ms: u64) -> Result<(), String> {
-        // Keep a small margin before EOF so Symphonia does not reject seeks right at the end.
         let safe_ms = if self.duration_ms > 50 {
             position_ms.min(self.duration_ms.saturating_sub(50))
         } else {
@@ -560,7 +538,6 @@ impl AudioOutput for RodioOutput {
         {
             return Ok(());
         }
-        // Fallback: if the stream could not seek in-place, reopen and seek forward from start.
         if let Some(path) = self.path.clone() {
             let paused = self.sink.as_ref().is_none_or(|s| s.is_paused());
             self.silence_and_drop_sink();
@@ -592,14 +569,12 @@ impl AudioOutput for RodioOutput {
     fn shutdown(&mut self) {
         self.silence_and_drop_sink();
         if self.stream.is_some() {
-            // The mixer's Zero source keeps the stream running on silence meanwhile.
             std::thread::sleep(CLOSE_TAIL);
             self.stream = None;
         }
     }
 }
 
-/// Output used when the machine has no audio device, so the UI can report it and recover.
 pub struct SilentOutput;
 
 impl AudioOutput for SilentOutput {
@@ -630,7 +605,6 @@ enum Message {
     Shutdown,
 }
 
-/// Handle to the audio worker thread.
 pub struct Player {
     tx: Sender<Message>,
     snapshot: Arc<Mutex<PlaybackSnapshot>>,
@@ -651,8 +625,6 @@ impl Player {
         }
     }
 
-    /// Output device format (sample rate in Hz, channels), kept separate from per-file
-    /// properties. Numbers, not text, so the UI can format them in the current language.
     pub fn device(&self) -> Option<(u32, u16)> {
         self.device
     }
@@ -726,7 +698,6 @@ fn run_worker<O: AudioOutput>(
         while let Ok(msg) = rx.try_recv() {
             match msg {
                 Message::Command(cmd) => {
-                    // Coalesce back-to-back Seek or Volume commands so dragging never floods the decoder.
                     match (batch.last_mut(), &cmd) {
                         (Some(PlaybackCommand::Seek(prev)), PlaybackCommand::Seek(next)) => {
                             *prev = *next;

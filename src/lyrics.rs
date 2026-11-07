@@ -54,7 +54,6 @@ pub fn parse_lrc(text: &str) -> Vec<LyricLine> {
     lines
 }
 
-/// Positive adjustment advances the displayed lyrics; negative delays them.
 pub fn active_line(lines: &[LyricLine], position_ms: u64, offset_ms: i64) -> Option<usize> {
     let time = (position_ms.min(i64::MAX as u64) as i64).saturating_add(offset_ms);
     if time < 0 {
@@ -91,7 +90,6 @@ pub struct ResolvedLyrics {
 }
 
 impl ResolvedLyrics {
-    /// Guards the UI against a slow response for a track the user already left.
     pub fn is_current(&self, track_id: i64, generation: u64) -> bool {
         self.track_id == track_id && self.generation == generation
     }
@@ -133,7 +131,6 @@ impl LyricsResolver {
         }
     }
 
-    /// Order: local `.lrc`, cached copy, then LRCLIB when the user enabled online lookup.
     pub fn resolve(
         &self,
         request: &LyricsRequest<'_>,
@@ -188,10 +185,6 @@ impl LyricsResolver {
         .into())
     }
 
-    /// LRCLIB is often overloaded ("server is busy", 503), and `/api/get` for a track it does not
-    /// hold yet triggers a slow upstream lookup that fails first. So: cheap cached lookup, full
-    /// lookup, then several searches; a busy step just moves on. Only network errors and rate
-    /// limits stop early. Mirrors how PUW Notch finds lyrics.
     fn lookup(&self, request: &LyricsRequest<'_>) -> Result<LrclibTrack, String> {
         let (title, artist) = clean_names(request.title, request.artist);
         let duration = (request.duration_ms / 1000).to_string();
@@ -251,7 +244,6 @@ impl LyricsResolver {
             .map_err(|e| e.to_string())
     }
 
-    /// `Ok(None)` = not found (404). A busy server is retried once before giving up on the step.
     fn get_json<T: serde::de::DeserializeOwned>(
         &self,
         url: reqwest::Url,
@@ -312,14 +304,10 @@ impl LyricsResolver {
 }
 
 enum Fetch {
-    /// 5xx: LRCLIB overloaded; try the next lookup step.
     Busy(u16),
-    /// Network down, timeout, rate limit, bad response: stop.
     Fatal(String),
 }
 
-/// A version whose length is far from the file is a different cut (extended mix, edit): its
-/// timestamps would drift. Closest length wins, within this many seconds.
 const LENGTH_TOLERANCE_S: f64 = 20.0;
 
 fn closest_length(found: Vec<LrclibTrack>, duration_ms: u64) -> Option<LrclibTrack> {
@@ -334,7 +322,6 @@ fn closest_length(found: Vec<LrclibTrack>, duration_ms: u64) -> Option<LrclibTra
         .min_by(|a, b| gap(a).total_cmp(&gap(b)))
 }
 
-/// Tag noise that breaks lookups: "(Official MV)", "[Lyrics]", "feat. X", "Artist - Topic".
 pub fn clean_names(title: &str, artist: &str) -> (String, String) {
     let mut cleaned = String::new();
     let mut depth = 0usize;

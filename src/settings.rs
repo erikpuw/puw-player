@@ -1,4 +1,3 @@
-//! Persisted preferences. Stored in the library database so one file carries all app state.
 
 use crate::queue::RepeatMode;
 use rusqlite::{Connection, params};
@@ -28,14 +27,11 @@ impl Theme {
     }
 }
 
-/// Online lyric lookup is opt-in: the app must run fully offline by default.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Settings {
     pub theme: Theme,
     pub lyrics_online: bool,
-    /// Interface language: false = Vietnamese (default), true = English.
     pub english: bool,
-    /// Playback modes survive restarts; re-clicking them every launch is tedious.
     pub shuffle: bool,
     pub repeat: RepeatMode,
 }

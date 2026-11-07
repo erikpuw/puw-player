@@ -11,7 +11,6 @@ pub fn fit_cover(width: u32, height: u32, max: u32) -> Option<(u32, u32)> {
     ))
 }
 
-/// Project a neighboring cover onto a trapezoid. Transparent margins preserve the image ratio.
 pub fn perspective(source: &DynamicImage, right_side: bool) -> RgbaImage {
     let fit = source.thumbnail(256, 256).to_rgba8();
     let mut canvas = RgbaImage::new(180, 256);
@@ -37,7 +36,6 @@ pub fn perspective(source: &DynamicImage, right_side: bool) -> RgbaImage {
 }
 
 pub fn load_cover(bytes: &[u8]) -> Option<DynamicImage> {
-    // Bound both compressed and decoded sizes for untrusted embedded artwork.
     if bytes.len() > 20 * 1024 * 1024 {
         return None;
     }
