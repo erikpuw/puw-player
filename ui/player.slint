@@ -529,25 +529,25 @@ component TrackListItem inherits Rectangle {
     callback extra();
     property <bool> show-action: action-icon != ""
         && (touch.has-hover || action-touch.has-hover || extra-touch.has-hover);
-    height: 72px;
+    height: 60px;
     background: selected ? Theme.hover : (touch.has-hover ? Theme.hover : transparent);
     accessible-role: list-item;
     accessible-label: title;
     Rectangle {
         x: 0;
-        y: (parent.height - 30px) / 2;
+        y: (parent.height - 26px) / 2;
         width: 3px;
-        height: 30px;
+        height: 26px;
         border-radius: 2px;
         background: Theme.accent;
         opacity: current ? 1 : 0;
     }
     Rectangle {
         x: 10px;
-        y: (parent.height - 52px) / 2;
-        width: 52px;
-        height: 52px;
-        border-radius: 6px;
+        y: (parent.height - 44px) / 2;
+        width: 44px;
+        height: 44px;
+        border-radius: 5px;
         background: Theme.surface;
         clip: true;
         Image {
@@ -558,21 +558,22 @@ component TrackListItem inherits Rectangle {
         }
     }
     Text {
-        x: 76px;
-        y: 14px;
-        width: parent.width - 76px - 74px;
-        height: 24px;
+        x: 66px;
+        y: 10px;
+        width: parent.width - 66px - 74px;
+        height: 22px;
         text: root.title;
         color: root.missing ? Theme.muted : Theme.text;
-        font-size: 16px;
+        font-size: 15px;
+        font-weight: 600;
         vertical-alignment: center;
         overflow: elide;
     }
     Text {
-        x: 76px;
-        y: parent.height - 34px;
-        width: parent.width - 76px - 74px;
-        height: 20px;
+        x: 66px;
+        y: parent.height - 28px;
+        width: parent.width - 66px - 74px;
+        height: 18px;
         text: root.missing ? I18n.t("Không tìm thấy tệp", "File not found") : root.artist;
         color: Theme.muted;
         font-size: 13px;
