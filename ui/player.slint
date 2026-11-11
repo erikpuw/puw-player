@@ -69,6 +69,7 @@ export global Icons {
     out property <string> close: "M 6.5 6.5 L 17.5 17.5 M 17.5 6.5 L 6.5 17.5";
     out property <string> headphones: "M 4.5 15.5 V 12.5 A 7.5 7.5 0 0 1 19.5 12.5 V 15.5 M 4.5 14.5 H 7.5 V 20 H 4.5 Z M 16.5 14.5 H 19.5 V 20 H 16.5 Z";
     out property <string> waveform: "M 3 10 V 14 M 7.5 6 V 18 M 12 3 V 21 M 16.5 6 V 18 M 21 10 V 14";
+    out property <string> music: "M 9.5 17.5 V 6 L 19 4 V 15.5 M 9.5 9.5 L 19 7.5 M 9.5 17.5 A 2.5 2.5 0 1 1 4.5 17.5 A 2.5 2.5 0 1 1 9.5 17.5 Z M 19 15.5 A 2.5 2.5 0 1 1 14 15.5 A 2.5 2.5 0 1 1 19 15.5 Z";
 }
 
 component Glyph inherits Rectangle {
@@ -1099,12 +1100,12 @@ export component AppWindow inherits Window {
                                 alignment: center;
                                 spacing: 8px;
                                 Glyph {
-                                    glyph-size: 40px;
-                                    icon: Icons.lyrics;
+                                    glyph-size: 48px;
+                                    icon: Icons.music;
                                     tint: Theme.line;
                                 }
-                                Text {
-                                    text: root.has-track ? I18n.t("Không có bìa", "No artwork") : I18n.t("Chưa chọn bài", "No track selected");
+                                if root.has-track: Text {
+                                    text: I18n.t("Không có bìa", "No artwork");
                                     color: Theme.muted;
                                     font-size: 13px;
                                     horizontal-alignment: center;
@@ -1284,14 +1285,15 @@ export component AppWindow inherits Window {
                             max-width: 64px;
                             min-height: 64px;
                             max-height: 64px;
-                            opacity: root.has-track ? 1 : 0.45;
+                            property <bool> can-play: root.has-track || root.tracks.length > 0;
+                            opacity: can-play ? 1 : 0.45;
                             accessible-role: button;
                             accessible-label: root.playing ? I18n.t("Tạm dừng", "Pause") : I18n.t("Phát", "Play");
-                            property <length> play-inset: play-touch.pressed && root.has-track ? 3px : 0px;
+                            property <length> play-inset: play-touch.pressed && can-play ? 3px : 0px;
                             play-focus := FocusScope {
-                                enabled: root.has-track;
+                                enabled: parent.can-play;
                                 key-pressed(event) => {
-                                    if (root.has-track && (event.text == Key.Return || event.text == Key.Space)) {
+                                    if (parent.can-play && (event.text == Key.Return || event.text == Key.Space)) {
                                         root.play-pause();
                                         return EventResult.accept;
                                     }
@@ -1306,7 +1308,7 @@ export component AppWindow inherits Window {
                                 border-radius: (parent.width - parent.play-inset) / 2;
                                 border-width: play-focus.has-focus ? 2px : 0px;
                                 border-color: Theme.text;
-                                background: play-touch.has-hover && root.has-track ? Theme.accent.brighter(0.1) : Theme.accent;
+                                background: play-touch.has-hover && parent.can-play ? Theme.accent.brighter(0.1) : Theme.accent;
                                 animate background { duration: Motion.fast; }
                                 PlayPauseMorph {
                                     x: (parent.width - 28px) / 2;
@@ -1319,9 +1321,9 @@ export component AppWindow inherits Window {
                                 }
                             }
                             play-touch := TouchArea {
-                                enabled: root.has-track;
-                                mouse-cursor: root.has-track ? MouseCursor.pointer : MouseCursor.default;
-                                clicked => { if (root.has-track) { root.play-pause(); } }
+                                enabled: parent.can-play;
+                                mouse-cursor: parent.can-play ? MouseCursor.pointer : MouseCursor.default;
+                                clicked => { if (parent.can-play) { root.play-pause(); } }
                             }
                         }
                         IconButton {
@@ -1373,6 +1375,12 @@ export component AppWindow inherits Window {
                         }
                     }
 
+                    device-hover := TouchArea {
+                        x: 0;
+                        y: parent.height - 30px;
+                        width: parent.width;
+                        height: 30px;
+                    }
                     Text {
                         x: 0;
                         y: parent.height - 24px;
@@ -1384,6 +1392,8 @@ export component AppWindow inherits Window {
                         vertical-alignment: center;
                         horizontal-alignment: center;
                         overflow: elide;
+                        opacity: device-hover.has-hover ? 1 : 0;
+                        animate opacity { duration: Motion.fast; }
                     }
                 }
 
